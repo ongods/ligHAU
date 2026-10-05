@@ -57,11 +57,14 @@ Three to five bullets. What can a user actually do?
 ```bash
 flutter pub get
 cp .env.example .env      # only if your app needs keys, see below
-flutter run -d web-server --web-port 8080
+flutter run -d web-server --web-port 8080 --dart-define-from-file=.env
 ```
 
 Then open http://localhost:8080. Requires Flutter (run `flutter --version` and
 put yours here).
+
+On Windows, `./tools/run-web.ps1` starts the app with `.env` automatically.
+Use `./tools/run-web.ps1 -Port 8081` if port 8080 is already in use.
 
 ### Environment variables
 
@@ -72,8 +75,22 @@ result.
 | Variable | What it is | Where to get one |
 | --- | --- | --- |
 | `EXAMPLE_API_KEY` | ... | ... |
+| `MAPTILER_KEY` | Browser map API key; required for the campus map | MapTiler Cloud; restrict allowed origins to your app |
+| `MAPTILER_STYLE_ID` | Map style identifier (defaults to `streets-v4`) | MapTiler Cloud |
+
+The `.env` file supplies compile-time configuration through
+`--dart-define-from-file=.env`; Flutter does not read it automatically. Restart
+the app after changing these values. For a local web build, use
+`flutter build web --dart-define-from-file=.env`. For GitHub Pages, configure the
+`MAPTILER_KEY` repository secret before deploying.
 
 ## Privacy and secrets
+
+Admin access in this local prototype uses `admin` / `ligHAU-admin`.
+The dashboard requires a signed-in demo session, which is cleared on sign-out.
+These credentials are public demo values checked in the client; this does not
+provide production authorization. Real admin accounts and permission checks
+must be verified by a backend before connecting management to persistent data.
 
 Required section. Two or three honest sentences:
 
