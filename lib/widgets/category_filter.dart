@@ -16,10 +16,10 @@ class CategoryFilter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 40,
+      height: 44,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         itemCount: categories.length,
         separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.sm),
         itemBuilder: (context, index) {
@@ -29,18 +29,18 @@ class CategoryFilter extends StatelessWidget {
             label: Text(cat),
             selected: isSelected,
             onSelected: (_) => onSelected(cat),
-            selectedColor: AppColors.secondary,
+            selectedColor: AppColors.primary,
             labelStyle: TextStyle(
               color: isSelected ? Colors.white : AppColors.onSurface,
-              fontWeight: FontWeight.w500,
-              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
             ),
             backgroundColor: AppColors.surface,
             side: BorderSide(
-              color: isSelected ? AppColors.secondary : AppColors.pathway,
+              color: isSelected ? AppColors.primary : AppColors.pathway,
             ),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(12),
             ),
             showCheckmark: false,
           );

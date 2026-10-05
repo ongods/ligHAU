@@ -1,186 +1,183 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/facility.dart';
+import '../widgets/app_header.dart';
 
 class BuildingInfoScreen extends StatelessWidget {
   final Facility facility;
-
   const BuildingInfoScreen({super.key, required this.facility});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
+    final text = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Building Information')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppSpacing.lg),
+      appBar: const AppHeader(title: 'Place details'),
+      body: PageBody(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(28),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: .12),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Icon(
+                            facility.icon,
+                            color: Colors.white,
+                            size: 32,
+                          ),
+                        ),
+                        const Icon(
+                          Icons.location_on_outlined,
+                          size: 48,
+                          color: Colors.white24,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 32),
+                    Text(
+                      'HOLY ANGEL UNIVERSITY',
+                      style: text.labelSmall?.copyWith(
+                        color: AppColors.secondary,
+                        letterSpacing: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      facility.name,
+                      style: text.headlineSmall?.copyWith(color: Colors.white),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      facility.category,
+                      style: text.bodySmall?.copyWith(color: Colors.white70),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 28),
+              Text('About this place', style: text.titleLarge),
+              const SizedBox(height: 12),
+              Text(facility.description, style: text.bodyLarge),
+              const SizedBox(height: 28),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      _infoRow(
+                        context,
+                        Icons.schedule_rounded,
+                        'Operating hours',
+                        facility.hours,
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Divider(),
+                      ),
+                      _infoRow(
+                        context,
+                        Icons.layers_outlined,
+                        'Floors',
+                        facility.floors?.toString() ?? 'Not verified',
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Divider(),
+                      ),
+                      _infoRow(
+                        context,
+                        Icons.place_outlined,
+                        'Location',
+                        facility.location,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (facility.facilities.isNotEmpty) ...[
+                const SizedBox(height: 28),
+                Text('What you’ll find here', style: text.titleLarge),
+                const SizedBox(height: 12),
+                for (final name in facility.facilities)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.only(top: 3),
+                          child: Icon(
+                            Icons.check_circle_outline_rounded,
+                            size: 18,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(child: Text(name, style: text.bodyMedium)),
+                      ],
+                    ),
+                  ),
+              ],
+              const SizedBox(height: 32),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.map_outlined, size: 18),
+                  label: const Text('Back to map'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _infoRow(
+    BuildContext context,
+    IconData icon,
+    String label,
+    String value,
+  ) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: AppColors.background,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, color: AppColors.primary, size: 20),
+      ),
+      const SizedBox(width: 14),
+      Expanded(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: double.infinity,
-              height: 180,
-              decoration: BoxDecoration(
-                color: AppColors.pathway,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(facility.icon, size: 56, color: AppColors.primary),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    facility.category,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            // Building name
-            Text(facility.name, style: theme.textTheme.titleLarge),
-            const SizedBox(height: AppSpacing.sm),
-            // Category chip
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.secondary.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Text(
-                facility.category,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: AppColors.secondary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            // Description
-            Text(facility.description, style: theme.textTheme.bodyMedium),
-            const SizedBox(height: AppSpacing.lg),
-            // Info cards
-            _infoRow(
-              theme,
-              Icons.access_time,
-              'Operating Hours',
-              facility.hours,
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            _infoRow(
-              theme,
-              Icons.layers,
-              'Floors',
-              '${facility.floors}',
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            _infoRow(
-              theme,
-              Icons.location_on_outlined,
-              'Location',
-              facility.location,
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            // Facilities section
-            if (facility.facilities.isNotEmpty) ...[
-              Text('Facilities', style: theme.textTheme.titleLarge),
-              const SizedBox(height: AppSpacing.sm),
-              Wrap(
-                spacing: AppSpacing.sm,
-                runSpacing: AppSpacing.sm,
-                children: facility.facilities.map((f) {
-                  return Chip(
-                    label: Text(f, style: const TextStyle(fontSize: 13)),
-                    backgroundColor: AppColors.background,
-                    side: const BorderSide(color: AppColors.pathway),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-            ],
-            // Accessibility icons row
-            Row(
-              children: [
-                _iconTag(Icons.accessible, 'Accessible'),
-                const SizedBox(width: AppSpacing.sm),
-                _iconTag(Icons.wifi, 'Wi-Fi'),
-                const SizedBox(width: AppSpacing.sm),
-                _iconTag(Icons.ac_unit, 'Air-conditioned'),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            // Get Directions button
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Route highlighted on campus map.'),
-                    ),
-                  );
-                  Navigator.pop(context);
-                },
-                icon: const Icon(Icons.directions),
-                label: const Text('Get Directions'),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
+            Text(label, style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: 4),
+            Text(value, style: Theme.of(context).textTheme.titleMedium),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _infoRow(ThemeData theme, IconData icon, String label, String value) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Row(
-          children: [
-            Icon(icon, color: AppColors.primary, size: 22),
-            const SizedBox(width: AppSpacing.md),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: theme.textTheme.labelSmall),
-                const SizedBox(height: 2),
-                Text(value, style: theme.textTheme.labelLarge),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _iconTag(IconData icon, String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppColors.pathway,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: AppColors.primary),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 11,
-              color: AppColors.onSurface,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+    ],
+  );
 }

@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
 import '../data/mock_data.dart';
 import '../models/facility.dart';
+import '../widgets/app_header.dart';
 import '../widgets/facility_card.dart';
 import 'building_info_screen.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
-
   @override
   State<SearchScreen> createState() => _SearchScreenState();
 }
@@ -15,22 +14,17 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   final _searchController = TextEditingController();
   List<Facility> _results = List.from(mockFacilities);
-
-  void _onSearchChanged(String query) {
-    setState(() {
-      if (query.isEmpty) {
-        _results = List.from(mockFacilities);
-      } else {
-        _results = mockFacilities
-            .where((f) =>
-                f.name.toLowerCase().contains(query.toLowerCase()) ||
-                f.category.toLowerCase().contains(query.toLowerCase()) ||
-                f.location.toLowerCase().contains(query.toLowerCase()))
-            .toList();
-      }
-    });
-  }
-
+  void _onSearchChanged(String query) => setState(() {
+    final q = query.trim().toLowerCase();
+    _results = mockFacilities
+        .where(
+          (f) =>
+              '${f.name} ${f.category} ${f.location} ${f.facilities.join(' ')}'
+                  .toLowerCase()
+                  .contains(q),
+        )
+        .toList();
+  });
   @override
   void dispose() {
     _searchController.dispose();
@@ -38,79 +32,66 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Search'),
-      ),
-      body: Column(
+  Widget build(BuildContext context) => Scaffold(
+    appBar: const AppHeader(title: 'Campus directory'),
+    body: PageBody(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: TextField(
-              controller: _searchController,
-              onChanged: _onSearchChanged,
-              autofocus: true,
-              decoration: const InputDecoration(
-                hintText: 'Search buildings, rooms, facilities...',
-                prefixIcon: Icon(Icons.search),
-              ),
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Find your next stop.',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Search buildings, offices, and campus essentials.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 24),
+                TextField(
+                  controller: _searchController,
+                  onChanged: _onSearchChanged,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    hintText: 'Find a building or facility',
+                    prefixIcon: Icon(Icons.search_rounded),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  '${_results.length} ${_results.length == 1 ? 'place' : 'places'} found',
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
+              ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                '${_results.length} result${_results.length == 1 ? '' : 's'}',
-                style: theme.textTheme.labelSmall,
-              ),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
           Expanded(
             child: _results.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.search_off,
-                            size: 48, color: AppColors.border),
-                        const SizedBox(height: AppSpacing.sm),
-                        Text(
-                          'No results found',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: AppColors.border,
-                          ),
-                        ),
-                      ],
-                    ),
+                ? const Center(
+                    child: Text('No places found. Try a different search.'),
                   )
                 : ListView.builder(
                     itemCount: _results.length,
-                    padding:
-                        const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-                    itemBuilder: (context, index) {
-                      final facility = _results[index];
-                      return FacilityCard(
-                        facility: facility,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  BuildingInfoScreen(facility: facility),
-                            ),
-                          );
-                        },
-                      );
-                    },
+                    padding: const EdgeInsets.only(bottom: 24),
+                    itemBuilder: (_, i) => FacilityCard(
+                      facility: _results[i],
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              BuildingInfoScreen(facility: _results[i]),
+                        ),
+                      ),
+                    ),
                   ),
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
 }

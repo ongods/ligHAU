@@ -6,7 +6,7 @@ class Facility {
   final String location;
   final String description;
   final String hours;
-  final int floors;
+  final int? floors;
   final IconData icon;
   final List<String> facilities;
 

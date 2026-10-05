@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../data/mock_data.dart';
+import '../widgets/app_header.dart';
 import 'building_info_screen.dart';
 
 class _ChatMessage {
@@ -28,15 +29,14 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
 
   final List<_ChatMessage> _messages = [
     const _ChatMessage(
-      text: 'Hello! I\'m the ligHAU Assistant. I can help you navigate the campus. Try asking me about a building or facility!',
+      text:
+          'Hello! I\'m the ligHAU Assistant. I can help you navigate the campus. Try asking me about a building or facility!',
       isUser: false,
     ),
+    const _ChatMessage(text: 'Where is the Registrar?', isUser: true),
     const _ChatMessage(
-      text: 'Where is the Registrar?',
-      isUser: true,
-    ),
-    const _ChatMessage(
-      text: 'The Registrar is located at the Main Building, Ground Floor. It is open from 8:00 AM – 5:00 PM. I can show it on the campus map.',
+      text:
+          'The Registrar is located at the Main Building, Ground Floor. It is open from 8:00 AM – 5:00 PM. I can show it on the campus map.',
       isUser: false,
       hasAction: true,
     ),
@@ -49,13 +49,17 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       _messages.add(_ChatMessage(text: text, isUser: true));
       _inputController.clear();
       // Mock response
-      _messages.add(const _ChatMessage(
-        text: 'I found a matching campus facility. You can view its information or locate it on the map.',
-        isUser: false,
-        hasAction: true,
-      ));
+      _messages.add(
+        const _ChatMessage(
+          text:
+              'I found a matching campus facility. You can view its information or locate it on the map.',
+          isUser: false,
+          hasAction: true,
+        ),
+      );
     });
     Future.delayed(const Duration(milliseconds: 100), () {
+      if (!mounted || !_scrollController.hasClients) return;
       _scrollController.animateTo(
         _scrollController.position.maxScrollExtent,
         duration: const Duration(milliseconds: 300),
@@ -76,60 +80,92 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('ligHAU Assistant'),
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                final msg = _messages[index];
-                return _buildBubble(msg, theme);
-              },
-            ),
-          ),
-          // Input area
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: AppSpacing.sm,
-            ),
-            decoration: const BoxDecoration(
-              color: AppColors.surface,
-              border: Border(
-                top: BorderSide(color: AppColors.pathway),
-              ),
-            ),
-            child: SafeArea(
-              top: false,
+      appBar: const AppHeader(title: 'Campus assistant'),
+      body: PageBody(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
               child: Row(
                 children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _inputController,
-                      decoration: const InputDecoration(
-                        hintText: 'Ask about a building or facility...',
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: AppSpacing.md,
-                        ),
-                      ),
-                      onSubmitted: (_) => _sendMessage(),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryTint,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(
+                      Icons.chat_bubble_outline_rounded,
+                      color: AppColors.primary,
                     ),
                   ),
-                  IconButton(
-                    onPressed: _sendMessage,
-                    icon: const Icon(Icons.send, color: AppColors.primary),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'A little help finding your way.',
+                          style: theme.textTheme.titleMedium,
+                        ),
+                        Text(
+                          'Ask about a building or campus facility.',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
-          ),
-        ],
+            Expanded(
+              child: ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                itemCount: _messages.length,
+                itemBuilder: (context, index) {
+                  final msg = _messages[index];
+                  return _buildBubble(msg, theme);
+                },
+              ),
+            ),
+            // Input area
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.sm,
+              ),
+              decoration: const BoxDecoration(
+                color: AppColors.surface,
+                border: Border(top: BorderSide(color: AppColors.pathway)),
+              ),
+              child: SafeArea(
+                top: false,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _inputController,
+                        decoration: const InputDecoration(
+                          hintText: 'Ask about a building or facility...',
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: AppSpacing.md,
+                          ),
+                        ),
+                        onSubmitted: (_) => _sendMessage(),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: _sendMessage,
+                      icon: const Icon(Icons.send, color: AppColors.primary),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -140,11 +176,14 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       child: Container(
         margin: const EdgeInsets.only(bottom: AppSpacing.sm),
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.75,
+          maxWidth: MediaQuery.of(context).size.width < 760
+              ? MediaQuery.of(context).size.width * 0.8
+              : 560,
         ),
         child: Column(
-          crossAxisAlignment:
-              msg.isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment: msg.isUser
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
           children: [
             Container(
               padding: const EdgeInsets.all(AppSpacing.md),
@@ -183,8 +222,10 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 icon: const Icon(Icons.info_outline, size: 16),
                 label: const Text('Open Details'),
                 style: OutlinedButton.styleFrom(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   textStyle: const TextStyle(fontSize: 12),
                 ),
               ),
