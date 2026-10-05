@@ -1,11 +1,11 @@
 {
-  "name": "My Final Project",
-  "short_name": "Final Project",
+  "name": "ligHAU Campus Guide",
+  "short_name": "ligHAU",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#FFFFFF",
-  "theme_color": "#6750A4",
-  "description": "My 6ADET final project.",
+  "background_color": "#F8F7F3",
+  "theme_color": "#780F25",
+  "description": "Your guide to Holy Angel University.",
   "orientation": "portrait-primary",
   "prefer_related_applications": false
 }
