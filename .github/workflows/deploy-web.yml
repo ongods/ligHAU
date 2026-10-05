@@ -87,6 +87,7 @@ jobs:
       - name: Build web
         if: steps.check.outputs.ready == 'true'
         env:
+          MAPTILER_KEY: ${{ secrets.MAPTILER_KEY }}
           # Uncomment to match the repository secrets you actually created.
           # SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           # SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
@@ -96,7 +97,8 @@ jobs:
         # a white screen.
         run: |
           flutter build web --release \
-            --base-href "/${{ github.event.repository.name }}/"
+            --base-href "/${{ github.event.repository.name }}/" \
+            --dart-define="MAPTILER_KEY=$MAPTILER_KEY"
           # add one --dart-define=NAME=$NAME line per secret you uncommented above
 
       - if: steps.check.outputs.ready == 'true'
