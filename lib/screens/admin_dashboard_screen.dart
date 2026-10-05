@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/facility.dart';
 import '../data/mock_data.dart';
+import '../widgets/app_header.dart';
 import 'login_screen.dart';
+import 'admin_login_screen.dart';
+import '../services/admin_access.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -17,15 +20,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _buildings = List.from(mockFacilities.where(
-      (f) => f.category == 'Buildings' || f.category == 'Offices',
-    ));
+    _buildings = List.from(
+      mockFacilities.where(
+        (f) => f.category == 'Buildings' || f.category == 'Offices',
+      ),
+    );
   }
 
   void _logout() {
-    Navigator.pushReplacement(
+    AdminAccess.signOut();
+    Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (_) => false,
     );
   }
 
@@ -66,9 +73,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             onPressed: () {
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Building updated successfully.'),
-                ),
+                const SnackBar(content: Text('Building updated successfully.')),
               );
             },
             child: const Text('Save'),
@@ -97,9 +102,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 const SnackBar(content: Text('Building deleted.')),
               );
             },
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.error,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
             child: const Text('Delete'),
           ),
         ],
@@ -144,26 +147,26 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             onPressed: () {
               if (nameCtrl.text.isNotEmpty) {
                 setState(() {
-                  _buildings.add(Facility(
-                    name: nameCtrl.text,
-                    category: catCtrl.text.isEmpty
-                        ? 'Buildings'
-                        : catCtrl.text,
-                    location: 'Campus',
-                    description: 'Newly added building.',
-                    hours: hoursCtrl.text.isEmpty
-                        ? '7:00 AM – 7:00 PM'
-                        : hoursCtrl.text,
-                    floors: 1,
-                    icon: Icons.apartment,
-                  ));
+                  _buildings.add(
+                    Facility(
+                      name: nameCtrl.text,
+                      category: catCtrl.text.isEmpty
+                          ? 'Buildings'
+                          : catCtrl.text,
+                      location: 'Campus',
+                      description: 'Newly added building.',
+                      hours: hoursCtrl.text.isEmpty
+                          ? '7:00 AM – 7:00 PM'
+                          : hoursCtrl.text,
+                      floors: 1,
+                      icon: Icons.apartment,
+                    ),
+                  );
                 });
               }
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Building added successfully.'),
-                ),
+                const SnackBar(content: Text('Building added successfully.')),
               );
             },
             child: const Text('Add'),
@@ -175,101 +178,142 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!AdminAccess.isAuthenticated) return const AdminLoginScreen();
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Admin Dashboard'),
-        leading: IconButton(
-          icon: const Icon(Icons.logout),
-          onPressed: _logout,
-        ),
+      appBar: AppHeader(
+        title: 'Campus management',
+        actions: [
+          IconButton(
+            tooltip: 'Sign out',
+            icon: const Icon(Icons.logout),
+            onPressed: _logout,
+          ),
+        ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Overview', style: theme.textTheme.titleLarge),
-            const SizedBox(height: AppSpacing.md),
-            // Summary cards
-            Row(
-              children: [
-                Expanded(
-                  child: _summaryCard(theme, 'Buildings', '24', Icons.apartment),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: _summaryCard(
-                      theme, 'Facilities', '38', Icons.meeting_room),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: _summaryCard(
-                      theme, 'Locations', '62', Icons.location_on),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            // Manage buildings
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Manage Buildings', style: theme.textTheme.titleLarge),
-                IconButton(
-                  onPressed: _showAddDialog,
-                  icon: const Icon(Icons.add_circle, color: AppColors.primary),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            ...List.generate(_buildings.length, (index) {
-              final b = _buildings[index];
-              return Card(
-                margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: ListTile(
-                  leading: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: AppColors.pathway,
-                      borderRadius: BorderRadius.circular(8),
+      body: PageBody(
+        maxWidth: 1000,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Overview', style: theme.textTheme.titleLarge),
+              const SizedBox(height: AppSpacing.md),
+              // Summary cards
+              Row(
+                children: [
+                  Expanded(
+                    child: _summaryCard(
+                      theme,
+                      'Buildings',
+                      '24',
+                      Icons.apartment,
                     ),
-                    child: Icon(b.icon, color: AppColors.primary, size: 20),
                   ),
-                  title: Text(
-                    b.name,
-                    style: theme.textTheme.labelLarge,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: _summaryCard(
+                      theme,
+                      'Facilities',
+                      '38',
+                      Icons.meeting_room,
+                    ),
                   ),
-                  subtitle: Text(b.category, style: theme.textTheme.labelSmall),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit,
-                            color: AppColors.primary, size: 20),
-                        onPressed: () => _showEditDialog(b, index),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: _summaryCard(
+                      theme,
+                      'Locations',
+                      '62',
+                      Icons.location_on,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              // Manage buildings
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Manage Buildings',
+                      style: theme.textTheme.titleLarge,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: _showAddDialog,
+                    icon: const Icon(
+                      Icons.add_circle,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              ...List.generate(_buildings.length, (index) {
+                final b = _buildings[index];
+                return Card(
+                  margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                  child: ListTile(
+                    leading: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppColors.pathway,
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.delete,
-                            color: AppColors.error, size: 20),
-                        onPressed: () => _showDeleteDialog(index),
-                      ),
-                    ],
+                      child: Icon(b.icon, color: AppColors.primary, size: 20),
+                    ),
+                    title: Text(
+                      b.name,
+                      style: theme.textTheme.labelLarge,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      b.category,
+                      style: theme.textTheme.labelSmall,
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(
+                            Icons.edit,
+                            color: AppColors.primary,
+                            size: 20,
+                          ),
+                          onPressed: () => _showEditDialog(b, index),
+                        ),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.delete,
+                            color: AppColors.error,
+                            size: 20,
+                          ),
+                          onPressed: () => _showDeleteDialog(index),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              );
-            }),
-          ],
+                );
+              }),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _summaryCard(
-      ThemeData theme, String title, String count, IconData icon) {
+    ThemeData theme,
+    String title,
+    String count,
+    IconData icon,
+  ) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.md),
