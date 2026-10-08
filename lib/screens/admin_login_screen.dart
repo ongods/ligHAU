@@ -17,14 +17,37 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
   final _username = TextEditingController();
   final _password = TextEditingController();
   bool _obscure = true;
+  bool _signingIn = false;
   String? _error;
 
-  void _signIn() {
+  Future<void> _signIn() async {
+    if (_signingIn) return;
     if (!_formKey.currentState!.validate()) return;
-    if (!AdminAccess.signIn(_username.text.trim(), _password.text)) {
+    setState(() {
+      _signingIn = true;
+      _error = null;
+    });
+    bool signedIn;
+    try {
+      signedIn = await AdminAccess.signIn(
+        _username.text.trim(),
+        _password.text,
+      );
+    } on AdminSignInException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+      return;
+    } finally {
+      if (mounted) setState(() => _signingIn = false);
+    }
+    if (!mounted) {
+      AdminAccess.signOut();
+      return;
+    }
+    if (!signedIn) {
       setState(() => _error = 'Incorrect admin username or password.');
       return;
     }
+    _password.clear();
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
     );
@@ -104,8 +127,10 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                   ],
                   const SizedBox(height: 24),
                   FilledButton(
-                    onPressed: _signIn,
-                    child: const Text('Sign in as admin'),
+                    onPressed: _signingIn ? null : _signIn,
+                    child: Text(
+                      _signingIn ? 'Signing in…' : 'Sign in as admin',
+                    ),
                   ),
                   const SizedBox(height: 12),
                   TextButton(

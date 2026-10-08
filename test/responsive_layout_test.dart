@@ -1,3 +1,4 @@
+import 'support/fake_admin_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,8 +12,10 @@ import 'package:final_project/screens/login_screen.dart';
 import 'package:final_project/screens/map_screen.dart';
 import 'package:final_project/screens/search_screen.dart';
 import 'package:final_project/theme/app_theme.dart';
+import 'support/fake_facility_repository.dart';
 
 void main() {
+  setUp(installFakeAdminAuth);
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() async {
     final loader = FontLoader('Manrope')
@@ -34,10 +37,11 @@ void main() {
       testWidgets('${entry.key} fits at width $width', (tester) async {
         // Futures cached in a previous test belong to its fake async zone.
         rootBundle.clear();
+        installFakeCatalog();
         AdminAccess.signOut();
         addTearDown(AdminAccess.signOut);
         if (entry.key == 'management') {
-          AdminAccess.signIn('admin', 'ligHAU-admin');
+          await signInTestAdmin();
         }
         tester.view.physicalSize = Size(width, 900);
         tester.view.devicePixelRatio = 1;

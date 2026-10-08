@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:maplibre_gl/maplibre_gl.dart' as ml;
 import 'package:url_launcher/url_launcher.dart';
 
@@ -35,7 +36,6 @@ class CampusVectorMap extends StatefulWidget {
 class CampusVectorMapState extends State<CampusVectorMap> {
   static const _campus = ml.LatLng(15.1325, 120.5901);
   static const _source = 'hau-facilities';
-  static const _outlineSource = 'hau-footprints';
   late Future<String> _style = loadCampusMapStyle();
   ml.MapLibreMapController? _controller;
   ml.LatLng? _pendingFocus;
@@ -115,52 +115,15 @@ class CampusVectorMapState extends State<CampusVectorMap> {
         }
       }
       await controller.addGeoJsonSource(_source, _features);
-      await controller.addGeoJsonSource(_outlineSource, _outlines);
-      await controller.addFillLayer(
-        _outlineSource,
-        'hau-building-fills',
-        const ml.FillLayerProperties(
-          fillColor: [
-            'case',
-            ['get', 'selected'],
-            '#780F25',
-            '#B89765',
-          ],
-          fillOpacity: [
-            'case',
-            ['get', 'selected'],
-            .32,
-            .16,
-          ],
-        ),
-      );
-      await controller.addLineLayer(
-        _outlineSource,
-        'hau-building-outlines',
-        const ml.LineLayerProperties(
-          lineColor: [
-            'case',
-            ['get', 'selected'],
-            '#780F25',
-            '#9A805A',
-          ],
-          lineWidth: [
-            'case',
-            ['get', 'selected'],
-            2.5,
-            1.2,
-          ],
-        ),
-      );
       await controller.addSymbolLayer(
         _source,
         'hau-icons',
         const ml.SymbolLayerProperties(
           iconImage: ['get', 'icon'],
-          iconSize: .34,
+          iconSize: .42,
           iconPadding: 4,
-          iconAllowOverlap: true,
-          iconIgnorePlacement: true,
+          iconAllowOverlap: false,
+          iconIgnorePlacement: false,
         ),
         filter: [
           '==',
@@ -174,16 +137,16 @@ class CampusVectorMapState extends State<CampusVectorMap> {
         const ml.SymbolLayerProperties(
           textField: ['get', 'label'],
           textFont: ['Roboto Regular', 'Noto Sans Regular'],
-          textSize: 12,
+          textSize: 11,
           textColor: '#645C52',
           textHaloColor: '#F8F7F3',
           textHaloWidth: 2,
           textAnchor: 'top',
-          textOffset: [0, 1.5],
+          textOffset: [0, 1.9],
           textMaxWidth: 10,
           textAllowOverlap: false,
         ),
-        minzoom: 17,
+        minzoom: 18.2,
         filter: [
           '==',
           ['get', 'selected'],
@@ -197,8 +160,7 @@ class CampusVectorMapState extends State<CampusVectorMap> {
           iconImage: ['get', 'icon'],
           iconSize: .5,
           iconAllowOverlap: true,
-          iconIgnorePlacement: true,
-          textField: ['get', 'name'],
+          textField: ['get', 'label'],
           textFont: ['Roboto Medium', 'Noto Sans Regular'],
           textSize: 12,
           textColor: '#780F25',
@@ -234,12 +196,6 @@ class CampusVectorMapState extends State<CampusVectorMap> {
     widget.selected,
   );
 
-  Map<String, dynamic> get _outlines => campusFacilityOutlines(
-    widget.facilities,
-    widget.locations,
-    widget.selected,
-  );
-
   void _queueFeatures() {
     if (!_ready) return;
     final generation = _generation;
@@ -247,7 +203,6 @@ class CampusVectorMapState extends State<CampusVectorMap> {
         .then((_) async {
           if (!mounted || !_ready || generation != _generation) return;
           await _controller?.setGeoJsonSource(_source, _features);
-          await _controller?.setGeoJsonSource(_outlineSource, _outlines);
         })
         .catchError((Object _) {
           if (mounted && generation == _generation) {
@@ -445,6 +400,16 @@ class CampusVectorMapState extends State<CampusVectorMap> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       child: Row(
         children: [
+          InkWell(
+            onTap: () => launchUrl(Uri.parse('https://www.maptiler.com/')),
+            child: SvgPicture.asset(
+              'assets/branding/maptiler-logo.svg',
+              width: 75,
+              height: 24,
+              semanticsLabel: 'MapTiler',
+            ),
+          ),
+          const SizedBox(width: 10),
           Expanded(
             child: Wrap(
               alignment: WrapAlignment.end,

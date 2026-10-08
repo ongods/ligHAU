@@ -7,15 +7,18 @@ class CampusMapLocation {
   final String name;
   final int osmWayId;
   final List<LatLng> outline;
+  final LatLng? marker;
 
   const CampusMapLocation({
     required this.name,
     required this.osmWayId,
     required this.outline,
+    this.marker,
   });
 
   // Bounding-box midpoint of the OSM outline; not a surveyed entrance.
   LatLng get center {
+    if (marker != null) return marker!;
     final latitudes = outline.map((p) => p.latitude).toList()..sort();
     final longitudes = outline.map((p) => p.longitude).toList()..sort();
     return LatLng(

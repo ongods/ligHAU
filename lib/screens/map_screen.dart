@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import '../data/campus_map_data.dart';
-import '../data/mock_data.dart';
+import '../data/campus_map_features.dart';
+import '../data/mock_data.dart' show categories;
+import '../services/facility_repository.dart';
 import '../models/facility.dart';
 import '../theme/app_theme.dart';
 import '../widgets/brand_lockup.dart';
 import '../widgets/category_filter.dart';
 import '../widgets/campus_vector_map.dart';
 import '../widgets/facility_card.dart';
+import '../widgets/catalog_status_banner.dart';
 import 'building_info_screen.dart';
 import 'chatbot_screen.dart';
 import 'login_screen.dart';
@@ -24,9 +27,26 @@ class _MapScreenState extends State<MapScreen> {
   String _category = 'All';
   String _query = '';
   Facility? _selected;
+  final _repository = FacilityRepository.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    _repository.addListener(_catalogChanged);
+    _repository.refresh();
+  }
+
+  void _catalogChanged() {
+    if (mounted) {
+      setState(() {
+        if (_selected != null) _selected = _repository.current(_selected!);
+      });
+    }
+  }
 
   @override
   void dispose() {
+    _repository.removeListener(_catalogChanged);
     _searchController.dispose();
     super.dispose();
   }
@@ -36,7 +56,7 @@ class _MapScreenState extends State<MapScreen> {
     if (location != null) _mapKey.currentState?.focus(location);
   }
 
-  List<Facility> get _filtered => mockFacilities
+  List<Facility> get _filtered => _repository.value
       .where(
         (f) =>
             (_category == 'All' || f.category == _category) &&
@@ -54,6 +74,24 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  Future<void> _askAssistant() async {
+    final facility = await Navigator.push<Facility>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const ChatbotScreen(canReturnToMap: true),
+      ),
+    );
+    if (!mounted || facility == null) return;
+    final locations = await _locations;
+    if (!mounted) return;
+    setState(() {
+      _category = 'All';
+      _query = '';
+      _searchController.clear();
+    });
+    _select(facility, campusFacilityLocation(facility, locations));
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
@@ -64,23 +102,12 @@ class _MapScreenState extends State<MapScreen> {
             : null,
       ),
       actions: [
-        IconButton(
-          tooltip: 'Exit campus guide',
-          icon: const Icon(Icons.logout_rounded, color: AppColors.primary),
-          onPressed: () => Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const LoginScreen()),
-            (_) => false,
-          ),
-        ),
         if (MediaQuery.sizeOf(context).width < 600)
           Padding(
-            padding: const EdgeInsets.only(right: 16),
+            padding: EdgeInsets.zero,
             child: IconButton(
               tooltip: 'Ask ligHAU',
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ChatbotScreen()),
-              ),
+              onPressed: _askAssistant,
               icon: const Icon(
                 Icons.chat_bubble_outline_rounded,
                 color: AppColors.primary,
@@ -89,89 +116,104 @@ class _MapScreenState extends State<MapScreen> {
           )
         else
           Padding(
-            padding: const EdgeInsets.only(right: 16),
+            padding: EdgeInsets.zero,
             child: TextButton.icon(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ChatbotScreen()),
-              ),
+              onPressed: _askAssistant,
               icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
               label: const Text('Ask ligHAU'),
             ),
           ),
+        Padding(
+          padding: const EdgeInsets.only(right: 16),
+          child: IconButton(
+            tooltip: 'Exit campus guide',
+            icon: const Icon(Icons.logout_rounded, color: AppColors.primary),
+            onPressed: () => Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const LoginScreen()),
+              (_) => false,
+            ),
+          ),
+        ),
       ],
     ),
-    body: SafeArea(
-      top: false,
-      child: FutureBuilder<Map<String, CampusMapLocation>>(
-        future: _locations,
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return const Center(
-              child: Text('Unable to load campus locations.'),
-            );
-          }
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final locations = snapshot.data!;
-          return LayoutBuilder(
-            builder: (context, constraints) {
-              final wide = constraints.maxWidth >= 900;
-              final map = _map(locations);
-              if (wide) {
-                return Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      SizedBox(width: 340, child: _directory(locations)),
-                      const SizedBox(width: 20),
-                      Expanded(
-                        child: Column(
+    body: Column(
+      children: [
+        const CatalogStatusBanner(),
+        Expanded(
+          child: SafeArea(
+            top: false,
+            child: FutureBuilder<Map<String, CampusMapLocation>>(
+              future: _locations,
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return const Center(
+                    child: Text('Unable to load campus locations.'),
+                  );
+                }
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final locations = snapshot.data!;
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    final wide = constraints.maxWidth >= 900;
+                    final map = _map(locations);
+                    if (wide) {
+                      return Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Expanded(child: map),
-                            if (_selected != null) ...[
-                              const SizedBox(height: 12),
-                              _selection(locations),
-                            ],
+                            SizedBox(width: 340, child: _directory(locations)),
+                            const SizedBox(width: 20),
+                            Expanded(
+                              child: Column(
+                                children: [
+                                  Expanded(child: map),
+                                  if (_selected != null) ...[
+                                    const SizedBox(height: 12),
+                                    _selection(locations),
+                                  ],
+                                ],
+                              ),
+                            ),
                           ],
                         ),
-                      ),
-                    ],
-                  ),
+                      );
+                    }
+                    return Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 4, 20, 10),
+                          child: _search(),
+                        ),
+                        CategoryFilter(
+                          categories: categories,
+                          selected: _category,
+                          onSelected: _filter,
+                        ),
+                        const SizedBox(height: 10),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: map,
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: _selected == null
+                              ? _browseBar(locations)
+                              : _selection(locations),
+                        ),
+                      ],
+                    );
+                  },
                 );
-              }
-              return Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 10),
-                    child: _search(),
-                  ),
-                  CategoryFilter(
-                    categories: categories,
-                    selected: _category,
-                    onSelected: _filter,
-                  ),
-                  const SizedBox(height: 10),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: map,
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: _selected == null
-                        ? _browseBar(locations)
-                        : _selection(locations),
-                  ),
-                ],
-              );
-            },
-          );
-        },
-      ),
+              },
+            ),
+          ),
+        ),
+      ],
     ),
   );
 
@@ -322,12 +364,12 @@ class _MapScreenState extends State<MapScreen> {
         return FacilityCard(
           facility: facility,
           selected: _selected == facility,
-          subtitle: locations.containsKey(facility.name)
+          subtitle: campusFacilityLocation(facility, locations) != null
               ? facility.category
               : 'Location coming soon',
           margin: EdgeInsets.zero,
           onTap: () {
-            _select(facility, locations[facility.name]);
+            _select(facility, campusFacilityLocation(facility, locations));
             if (closeSheet) Navigator.pop(context);
           },
         );
@@ -341,41 +383,44 @@ class _MapScreenState extends State<MapScreen> {
         isScrollControlled: true,
         showDragHandle: true,
         backgroundColor: AppColors.background,
-        builder: (_) => SafeArea(
-          child: SizedBox(
-            height: MediaQuery.sizeOf(context).height * .65,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Campus places',
-                              style: Theme.of(context).textTheme.titleLarge,
-                            ),
-                            Text(
-                              '${_filtered.length} places in your selection',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ],
+        builder: (_) => ValueListenableBuilder<List<Facility>>(
+          valueListenable: _repository,
+          builder: (context, facilities, _) => SafeArea(
+            child: SizedBox(
+              height: MediaQuery.sizeOf(context).height * .65,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Campus places',
+                                style: Theme.of(context).textTheme.titleLarge,
+                              ),
+                              Text(
+                                '${_filtered.length} places in your selection',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        tooltip: 'Close directory',
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                    ],
+                        IconButton(
+                          tooltip: 'Close directory',
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                Expanded(child: _placeList(locations, closeSheet: true)),
-              ],
+                  Expanded(child: _placeList(locations, closeSheet: true)),
+                ],
+              ),
             ),
           ),
         ),
@@ -448,7 +493,7 @@ class _MapScreenState extends State<MapScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      locations.containsKey(_selected!.name)
+                      campusFacilityLocation(_selected!, locations) != null
                           ? _selected!.category
                           : 'Map location coming soon',
                       style: Theme.of(context).textTheme.bodySmall,
@@ -490,7 +535,8 @@ class _MapScreenState extends State<MapScreen> {
     facilities: _filtered,
     locations: locations,
     selected: _selected,
-    onSelected: (facility) => _select(facility, locations[facility.name]),
+    onSelected: (facility) =>
+        _select(facility, campusFacilityLocation(facility, locations)),
     onClear: () => setState(() => _selected = null),
   );
 }

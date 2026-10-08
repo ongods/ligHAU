@@ -1,23 +1,28 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
-import '../data/mock_data.dart';
+import '../models/facility.dart';
+import '../services/campus_chat_service.dart';
 import '../widgets/app_header.dart';
 import 'building_info_screen.dart';
 
 class _ChatMessage {
   final String text;
   final bool isUser;
-  final bool hasAction;
+  final List<Facility> facilities;
+  final Set<String> mapFacilityNames;
 
   const _ChatMessage({
     required this.text,
     required this.isUser,
-    this.hasAction = false,
+    this.facilities = const [],
+    this.mapFacilityNames = const {},
   });
 }
 
 class ChatbotScreen extends StatefulWidget {
-  const ChatbotScreen({super.key});
+  final CampusChatService? service;
+  final bool canReturnToMap;
+  const ChatbotScreen({super.key, this.service, this.canReturnToMap = false});
 
   @override
   State<ChatbotScreen> createState() => _ChatbotScreenState();
@@ -26,6 +31,11 @@ class ChatbotScreen extends StatefulWidget {
 class _ChatbotScreenState extends State<ChatbotScreen> {
   final _inputController = TextEditingController();
   final _scrollController = ScrollController();
+  late final _service = widget.service ?? CampusChatService();
+  final List<ChatTurn> _history = [];
+  bool _sending = false;
+  String? _error;
+  String? _retryQuestion;
 
   final List<_ChatMessage> _messages = [
     const _ChatMessage(
@@ -33,32 +43,66 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           'Hello! I\'m the ligHAU Assistant. I can help you navigate the campus. Try asking me about a building or facility!',
       isUser: false,
     ),
-    const _ChatMessage(text: 'Where is the Registrar?', isUser: true),
-    const _ChatMessage(
-      text:
-          'The Registrar is located at the Main Building, Ground Floor. It is open from 8:00 AM – 5:00 PM. I can show it on the campus map.',
-      isUser: false,
-      hasAction: true,
-    ),
   ];
 
   void _sendMessage() {
     final text = _inputController.text.trim();
-    if (text.isEmpty) return;
-    setState(() {
-      _messages.add(_ChatMessage(text: text, isUser: true));
-      _inputController.clear();
-      // Mock response
-      _messages.add(
-        const _ChatMessage(
-          text:
-              'I found a matching campus facility. You can view its information or locate it on the map.',
-          isUser: false,
-          hasAction: true,
-        ),
+    if (text.isEmpty || _sending) return;
+    if (text.length > 2000) {
+      setState(
+        () => _error = 'Please keep your question under 2000 characters.',
       );
+      return;
+    }
+    _request(text, addMessage: true);
+  }
+
+  Future<void> _request(String text, {bool addMessage = false}) async {
+    if (_sending) return;
+    setState(() {
+      if (addMessage) {
+        _messages.add(_ChatMessage(text: text, isUser: true));
+        _inputController.clear();
+      }
+      _sending = true;
+      _error = null;
+      _retryQuestion = null;
     });
-    Future.delayed(const Duration(milliseconds: 100), () {
+    _scrollToEnd();
+    try {
+      final reply = await _service.send(text, _history);
+      if (!mounted) return;
+      setState(() {
+        _history.addAll([
+          ChatTurn('user', text),
+          ChatTurn('model', reply.answer),
+        ]);
+        _messages.add(
+          _ChatMessage(
+            text: reply.answer,
+            isUser: false,
+            facilities: reply.facilities,
+            mapFacilityNames: reply.mapFacilityNames,
+          ),
+        );
+      });
+    } on CampusChatException catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error.message;
+          _retryQuestion = text;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _sending = false);
+        _scrollToEnd();
+      }
+    }
+  }
+
+  void _scrollToEnd() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scrollController.hasClients) return;
       _scrollController.animateTo(
         _scrollController.position.maxScrollExtent,
@@ -70,6 +114,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
 
   @override
   void dispose() {
+    if (widget.service == null) _service.close();
     _inputController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -129,6 +174,45 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 },
               ),
             ),
+            if (_sending)
+              const Padding(
+                padding: EdgeInsets.all(12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    SizedBox(width: 10),
+                    Text('Finding an answer…'),
+                  ],
+                ),
+              ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 8,
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      _error!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: theme.colorScheme.error),
+                    ),
+                    if (_retryQuestion != null)
+                      TextButton(
+                        onPressed: _sending
+                            ? null
+                            : () => _request(_retryQuestion!),
+                        child: const Text('Try again'),
+                      ),
+                  ],
+                ),
+              ),
             // Input area
             Container(
               padding: const EdgeInsets.symmetric(
@@ -145,6 +229,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                   children: [
                     Expanded(
                       child: TextField(
+                        enabled: !_sending,
                         controller: _inputController,
                         decoration: const InputDecoration(
                           hintText: 'Ask about a building or facility...',
@@ -157,7 +242,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                       ),
                     ),
                     IconButton(
-                      onPressed: _sendMessage,
+                      tooltip: 'Send question',
+                      onPressed: _sending ? null : _sendMessage,
                       icon: const Icon(Icons.send, color: AppColors.primary),
                     ),
                   ],
@@ -206,29 +292,41 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 ),
               ),
             ),
-            if (msg.hasAction && !msg.isUser) ...[
+            if (msg.facilities.isNotEmpty && !msg.isUser) ...[
               const SizedBox(height: AppSpacing.xs),
-              OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => BuildingInfoScreen(
-                        facility: mockFacilities[3], // Registrar
+              for (final facility in msg.facilities)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(facility.name, style: theme.textTheme.labelMedium),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    BuildingInfoScreen(facility: facility),
+                              ),
+                            ),
+                            icon: const Icon(Icons.info_outline, size: 16),
+                            label: const Text('Open Details'),
+                          ),
+                          if (widget.canReturnToMap &&
+                              msg.mapFacilityNames.contains(facility.name))
+                            OutlinedButton.icon(
+                              onPressed: () => Navigator.pop(context, facility),
+                              icon: const Icon(Icons.map_outlined, size: 16),
+                              label: const Text('Show on Map'),
+                            ),
+                        ],
                       ),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.info_outline, size: 16),
-                label: const Text('Open Details'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
+                    ],
                   ),
-                  textStyle: const TextStyle(fontSize: 12),
                 ),
-              ),
             ],
           ],
         ),

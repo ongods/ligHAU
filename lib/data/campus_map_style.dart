@@ -15,10 +15,16 @@ class MapStyleException implements Exception {
 }
 
 Future<String> loadCampusMapStyle({
-  String apiKey = MapConfig.apiKey,
-  String styleId = MapConfig.styleId,
+  String? apiKey,
+  String? styleId,
   http.Client? client,
 }) async {
+  if (apiKey == null) {
+    final config = await MapConfig.load();
+    apiKey = config.apiKey;
+    styleId ??= config.styleId;
+  }
+  styleId ??= MapConfig.styleId;
   if (apiKey.trim().isEmpty) {
     throw const MapStyleException(
       'The campus map has not been configured yet.',

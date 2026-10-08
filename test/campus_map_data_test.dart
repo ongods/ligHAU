@@ -2,9 +2,39 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:final_project/data/campus_map_data.dart';
 import 'package:final_project/data/mock_data.dart';
 import 'package:final_project/data/campus_map_features.dart';
+import 'package:final_project/models/facility.dart';
+import 'package:flutter/material.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test(
+    'new coordinate pins have stable IDs, selectable centers and no invented footprint',
+    () {
+      const facility = Facility(
+        id: 'new-building-id',
+        name: 'Research Center',
+        category: 'Buildings',
+        location: 'Campus',
+        description: 'Research',
+        hours: '8:00 AM – 5:00 PM',
+        floors: null,
+        icon: Icons.apartment,
+        latitude: 15.1325,
+        longitude: 120.5901,
+      );
+      final features =
+          campusFacilityFeatures([facility], {}, facility)['features'] as List;
+      expect(features.single['id'], 'new-building-id');
+      expect(features.single['geometry']['coordinates'], [120.5901, 15.1325]);
+      expect(features.single['properties']['selected'], true);
+      expect(campusFacilityLocation(facility, {})!.center.latitude, 15.1325);
+      expect(
+        campusFacilityOutlines([facility], {}, facility)['features'],
+        isEmpty,
+      );
+    },
+  );
 
   test(
     'facility footprints are closed longitude-first polygons with selection',

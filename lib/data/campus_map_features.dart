@@ -1,5 +1,25 @@
 import '../models/facility.dart';
+import 'package:latlong2/latlong.dart';
 import 'campus_map_data.dart';
+
+CampusMapLocation? campusFacilityLocation(
+  Facility facility,
+  Map<String, CampusMapLocation> locations,
+) {
+  final original = locations[facility.mapName];
+  if (!facility.hasCoordinates) return original;
+  return CampusMapLocation(
+    name: facility.name,
+    osmWayId: original?.osmWayId ?? -1,
+    outline: original?.outline ?? const [],
+    marker: LatLng(facility.latitude!, facility.longitude!),
+  );
+}
+
+Object campusFacilityFeatureId(Facility facility, CampusMapLocation location) =>
+    location.osmWayId != -1
+    ? location.osmWayId
+    : facility.id ?? 'pin-${facility.name}';
 
 String campusIconId(Facility facility, {bool selected = false}) =>
     'hau-${facility.icon.codePoint}${selected ? '-selected' : ''}';
@@ -24,15 +44,15 @@ Map<String, dynamic> campusFacilityFeatures(
   'type': 'FeatureCollection',
   'features': [
     for (final facility in facilities)
-      if (locations.containsKey(facility.name))
+      if (campusFacilityLocation(facility, locations) case final location?)
         {
           'type': 'Feature',
-          'id': locations[facility.name]!.osmWayId,
+          'id': campusFacilityFeatureId(facility, location),
           'geometry': {
             'type': 'Point',
             'coordinates': [
-              locations[facility.name]!.center.longitude,
-              locations[facility.name]!.center.latitude,
+              location.center.longitude,
+              location.center.latitude,
             ],
           },
           'properties': {
@@ -54,15 +74,15 @@ Map<String, dynamic> campusFacilityOutlines(
   'type': 'FeatureCollection',
   'features': [
     for (final facility in facilities)
-      if (locations.containsKey(facility.name))
+      if (locations.containsKey(facility.mapName))
         {
           'type': 'Feature',
-          'id': locations[facility.name]!.osmWayId,
+          'id': locations[facility.mapName]!.osmWayId,
           'geometry': {
             'type': 'Polygon',
             'coordinates': [
               [
-                for (final point in locations[facility.name]!.outline)
+                for (final point in locations[facility.mapName]!.outline)
                   [point.longitude, point.latitude],
               ],
             ],
