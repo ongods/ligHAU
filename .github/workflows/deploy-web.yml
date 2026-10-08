@@ -74,15 +74,25 @@ jobs:
       - if: steps.check.outputs.ready == 'true'
         run: flutter pub get
 
-      # Neither of these blocks your deploy: a failing test should not take your
-      # live link down. They are here so you find out before your grader does.
+      # Verification is required before publication.
       - if: steps.check.outputs.ready == 'true'
-        run: flutter analyze --no-fatal-infos
-        continue-on-error: true
+        run: flutter analyze
 
       - if: steps.check.outputs.ready == 'true'
         run: flutter test
-        continue-on-error: true
+
+      - if: steps.check.outputs.ready == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Backend security, persistence and recovery tests
+        if: steps.check.outputs.ready == 'true'
+        run: node --test server/*.test.mjs
+
+      - name: Isolated backend stress test
+        if: steps.check.outputs.ready == 'true'
+        run: node server/stress-test.mjs --soak-seconds=30
 
       - name: Build web
         if: steps.check.outputs.ready == 'true'

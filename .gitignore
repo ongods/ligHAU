@@ -1,5 +1,7 @@
 # Secrets: NEVER commit these. Add the line before you create the file.
 .env
+assets/config/map.local.json
+server/.local/
 .env.*
 !.env.example
 env.json
@@ -12,6 +14,10 @@ google-services.json.bak
 .dart_tool/
 .packages
 build/
+# Regenerable smoke/soak diagnostics; keep the latest stress report as evidence.
+docs/local-smoke-results.json
+docs/browser-smoke-results.json
+docs/staging-soak-results.json
 # Note: pubspec.lock IS committed for an app. It pins your exact package
 # versions so your build is the same on your laptop and on the CI runner.
 .flutter-plugins
@@ -28,3 +34,5 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/launch.json
+
+AGENTS.md
