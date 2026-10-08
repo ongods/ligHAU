@@ -11,9 +11,9 @@ Read this once, do the six steps, then delete this file.
 
 ## What you are looking at
 
-It is already a working Flutter app. Run it and you get a screen that says "It
-works". Nothing in it is precious; it exists so you start from something that
-runs instead of an empty folder.
+This project now contains the ligHAU campus guide. Start with the welcome screen
+and continue as a guest to explore the map and facility directory. The README
+contains the current setup and backend administration instructions.
 
 ```
 lib/main.dart          your app. Start changing this one.
@@ -43,17 +43,14 @@ happy to show someone.
 
 ```bash
 flutter pub get
-flutter run -d web-server --web-port 8080
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/sync-map-config.ps1
+flutter run -d chrome --web-port 53923
 ```
 
-You should see the "It works" screen inside a phone frame. That frame is
-`device_preview`, the same one from Modules 4 and 5.
-
-**It stays on in the deployed build too**, on purpose: your live link gets opened
-on a desktop browser, and a phone layout stretched across a wide window looks
-broken when it is not framed. The toolbar also lets whoever opens it switch
-device and orientation. If you would rather ship the clean app with no frame,
-`lib/main.dart` says exactly which line to change.
+The app uses responsive layouts for mobile and desktop. Keep the development
+app on port 53923 and the backend on port 8787. On Windows, `./tools/run-web.ps1`
+starts both. Reuse the running Flutter terminal for hot reload/restart instead
+of opening another development server.
 
 **Want to see where this ends up?** This template's own build is deployed at
 https://hau-6adet.github.io/final-project-template/ by the workflow in step 3.

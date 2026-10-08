@@ -7,12 +7,16 @@ Visible text credits link to MapTiler and OpenStreetMap.
 Set `MAPTILER_KEY` in `.env`, then run:
 
 ```powershell
-flutter run -d chrome --dart-define-from-file=.env
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/sync-map-config.ps1
+flutter run -d chrome
 ```
 
-Flutter reads these values at compile time. Restart after changing `.env`;
-hot reload does not update the key. The VS Code web launch configuration passes
-the file automatically. GitHub Pages builds use the `MAPTILER_KEY` repository
+The setup command writes only the browser map key and style ID to the git-ignored
+`assets/config/map.local.json` fallback used by plain Chrome launches. Re-run it
+and restart after changing `.env`. Explicit Dart defines take precedence.
+The VS Code launch configuration uses the generated public map asset;
+the complete `.env` file is never passed to Flutter.
+GitHub Pages builds use the `MAPTILER_KEY` repository
 secret. Restrict the browser key's allowed origins in MapTiler Cloud to localhost
 and your deployed site.
 
