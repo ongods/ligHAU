@@ -1,29 +1,9 @@
 name: Deploy web demo
 
-# Builds the Flutter web app and publishes it to GitHub Pages on every push to
-# main, so the link in your README is always your latest commit.
-#
-# Before this works, turn Pages on once: repository Settings > Pages >
-# Build and deployment > Source: GitHub Actions.
-#
-# CONFIG AND SECRETS. Values compiled into a web build are readable by anyone who
-# visits the site, so it matters which kind you are shipping:
-#
-#   Safe to ship: project identifiers whose data is protected by rules, i.e. the
-#   Firebase config in firebase_options.dart and the Supabase URL plus publishable
-#   key. Both vendors document these as safe to expose in a client. Your Firestore
-#   rules and your Supabase RLS policies are what actually protect the data.
-#
-#   NOT safe to ship: anything billable or privileged. A Gemini API key, a
-#   Supabase secret (service_role) key, a service account JSON. A stranger can
-#   read these off your deployed site and spend your quota. Keep those features
-#   local and demo them on video, or put a server in front.
-#
-# Whatever you do pass in, put it in Settings > Secrets and variables > Actions
-# and reference it below. Never write a key literally in this file: it is public.
-#
-# Step by step, with the Dart side and the usual mistakes: page 12 of
-# content/extending-your-app/ in your course workspace.
+# Verify Flutter and backend checks, then publish static files to GitHub Pages.
+# Set Pages source to GitHub Actions, MAPTILER_KEY as a repository secret, and
+# CHAT_API_BASE_URL as a repository variable. Run the Docker backend separately.
+# Database URLs and provider credentials belong only in backend-host secrets.
 
 on:
   push:
@@ -88,28 +68,39 @@ jobs:
 
       - name: Backend security, persistence and recovery tests
         if: steps.check.outputs.ready == 'true'
-        run: node --test server/*.test.mjs
+        run: |
+          npm ci
+          node --test server/*.test.mjs
 
       - name: Isolated backend stress test
         if: steps.check.outputs.ready == 'true'
         run: node server/stress-test.mjs --soak-seconds=30
 
+      - name: Isolated Postgres migration and integration tests
+        if: steps.check.outputs.ready == 'true'
+        run: node tools/test-postgres.mjs
+
       - name: Build web
         if: steps.check.outputs.ready == 'true'
         env:
           MAPTILER_KEY: ${{ secrets.MAPTILER_KEY }}
-          # Uncomment to match the repository secrets you actually created.
-          # SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          # SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
-          DUMMY: unused
+          CHAT_API_BASE_URL: ${{ vars.CHAT_API_BASE_URL }}
         # --base-href matters: on a project page the site lives at
         # username.github.io/<repo>/, and without it every asset 404s and you get
         # a white screen.
         run: |
+          node --input-type=module -e '
+            const value = process.env.CHAT_API_BASE_URL;
+            if (!value) throw new Error("Set the CHAT_API_BASE_URL repository variable to your backend HTTPS origin.");
+            const url = new URL(value);
+            if (url.protocol !== "https:" || url.username || url.password || url.pathname !== "/" || url.search || url.hash) {
+              throw new Error("CHAT_API_BASE_URL must be an HTTPS origin, such as https://api.example.com, without a path or credentials.");
+            }
+          '
           flutter build web --release \
             --base-href "/${{ github.event.repository.name }}/" \
-            --dart-define="MAPTILER_KEY=$MAPTILER_KEY"
-          # add one --dart-define=NAME=$NAME line per secret you uncommented above
+            --dart-define="MAPTILER_KEY=$MAPTILER_KEY" \
+            --dart-define="CHAT_API_BASE_URL=$CHAT_API_BASE_URL"
 
       - if: steps.check.outputs.ready == 'true'
         uses: actions/upload-pages-artifact@v5

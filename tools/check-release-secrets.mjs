@@ -4,7 +4,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const env = readFileSync(new URL('../.env', import.meta.url), 'utf8');
-const keys = ['GEMINI_API_KEY', 'MAPTILER_SERVICE_TOKEN'].map((name) => {
+const keys = ['GEMINI_API_KEY', 'MAPTILER_SERVICE_TOKEN', 'DATABASE_URL', 'DATABASE_MIGRATION_URL'].map((name) => {
   const line = env.split(/\r?\n/).find((item) => item.trimStart().startsWith(`${name}=`));
   let value = line?.trimStart().slice(name.length + 1).trim();
   if (value && ['"', "'"].includes(value[0]) && value.at(-1) === value[0]) value = value.slice(1, -1);

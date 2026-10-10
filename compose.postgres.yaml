@@ -1,0 +1,14 @@
+# Local Docker + hosted Supabase connection. This mounts the CA certificate,
+# never the schema-owner credentials. Keep compose.yaml's loopback-only port.
+services:
+  backend:
+    environment:
+      DATABASE_DRIVER: postgres
+      DATABASE_CA_FILE: /run/secrets/supabase_ca
+      DATABASE_SSL: require
+    secrets:
+      - supabase_ca
+
+secrets:
+  supabase_ca:
+    file: ${DATABASE_CA_FILE:?Set DATABASE_CA_FILE to the downloaded database CA certificate}

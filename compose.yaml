@@ -1,0 +1,45 @@
+# Local Docker verification only. Hosted deployment must use production + HTTPS.
+services:
+  backend:
+    build: .
+    image: lighau-backend:local
+    init: true
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      CHAT_HOST: 0.0.0.0
+      CHAT_PORT: "8787"
+      CAMPUS_DB_PATH: /data/campus.sqlite
+      DATABASE_DRIVER: ${DATABASE_DRIVER:-sqlite}
+      DATABASE_URL: ${DATABASE_URL:-}
+      DATABASE_CA_FILE: ${DATABASE_CA_FILE:-}
+      DATABASE_POOL_SIZE: ${DATABASE_POOL_SIZE:-5}
+      DATABASE_SSL: ${DATABASE_SSL:-require}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
+      CHAT_ALLOWED_ORIGINS: ${CHAT_ALLOWED_ORIGINS:-}
+      CHAT_CLIENT_LIMIT: ${CHAT_CLIENT_LIMIT:-5}
+      CHAT_GLOBAL_LIMIT: ${CHAT_GLOBAL_LIMIT:-30}
+      CHAT_DAILY_LIMIT: ${CHAT_DAILY_LIMIT:-100}
+      CHAT_RPM_LIMIT: ${CHAT_RPM_LIMIT:-5}
+      GEMINI_QUOTA_RPM: ${GEMINI_QUOTA_RPM:-}
+      GEMINI_QUOTA_TPM: ${GEMINI_QUOTA_TPM:-}
+      GEMINI_QUOTA_RPD: ${GEMINI_QUOTA_RPD:-}
+      MAPTILER_SERVICE_TOKEN: ${MAPTILER_SERVICE_TOKEN:-}
+      MAPTILER_QUOTA_REQUESTS: ${MAPTILER_QUOTA_REQUESTS:-}
+      MAPTILER_QUOTA_SESSIONS: ${MAPTILER_QUOTA_SESSIONS:-}
+      CHAT_TRUSTED_PROXY_ADDRESSES: ""
+    ports:
+      - "127.0.0.1:8787:8787"
+    volumes:
+      - campus-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  campus-data:

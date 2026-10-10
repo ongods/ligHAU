@@ -1,0 +1,14 @@
+# Allow only backend source and initial catalog data into the build context.
+**
+!Dockerfile
+!.dockerignore
+!package.json
+!package-lock.json
+!server/
+!server/*.mjs
+!lib/
+!lib/data/
+!lib/data/mock_data.dart
+!assets/
+!assets/data/
+!assets/data/hau_osm.json
