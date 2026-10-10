@@ -1,0 +1,17 @@
+{
+  "name": "lighau-tools",
+  "private": true,
+  "description": "Shared development tools for the ligHAU Flutter app and backend.",
+  "scripts": {
+    "supabase": "supabase",
+    "test:backend": "node --test server/*.test.mjs",
+    "test:postgres": "node tools/test-postgres.mjs",
+    "db:check": "node --env-file=.env server/check-postgres.mjs"
+  },
+  "devDependencies": {
+    "supabase": "2.120.0"
+  },
+  "dependencies": {
+    "pg": "8.23.1"
+  }
+}

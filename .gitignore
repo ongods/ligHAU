@@ -2,6 +2,7 @@
 .env
 assets/config/map.local.json
 server/.local/
+node_modules/
 .env.*
 !.env.example
 env.json
@@ -31,6 +32,13 @@ raw-*.mp4
 # OS and editor
 .DS_Store
 Thumbs.db
+# Local diagnostic output, editor scratch files, and database copies.
+*.log
+*.tmp
+*.bak
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
 .idea/
 .vscode/*
 !.vscode/launch.json
