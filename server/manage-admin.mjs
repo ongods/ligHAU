@@ -1,36 +1,19 @@
-import { stdin, stdout } from 'node:process';
-import { AppDatabase, defaultDatabaseFile } from './database.mjs';
-import { AdminAuth } from './admin-auth.mjs';
-
-async function hiddenPassword(prompt) {
-  if (!stdin.isTTY) throw new Error('Run this command in an interactive terminal; passwords are not accepted as command-line arguments.');
-  stdout.write(prompt);
-  stdin.setRawMode(true); stdin.resume(); stdin.setEncoding('utf8');
-  return new Promise((resolve, reject) => {
-    let value = '';
-    const cleanup = () => { stdin.off('data', receive); stdin.setRawMode(false); stdin.pause(); stdout.write('\n'); };
-    const receive = (chunk) => {
-      for (const char of chunk) {
-        if (char === '\u0003') { cleanup(); reject(new Error('Cancelled.')); return; }
-        if (char === '\r' || char === '\n') { cleanup(); resolve(value); return; }
-        if (char === '\u007f' || char === '\b') value = [...value].slice(0, -1).join('');
-        else if (char >= ' ') value += char;
-      }
-    };
-    stdin.on('data', receive);
-  });
-}
+import { openBackendStorage } from './backend-storage.mjs';
+import { hiddenPassword } from './terminal-password.mjs';
 
 const [command, username] = process.argv.slice(2);
 let database;
 try {
   if (!['create', 'reset', 'disable', 'list'].includes(command) || (command !== 'list' && !username)) throw new Error('Usage: node --env-file=.env server/manage-admin.mjs create|reset|disable USERNAME, or list');
-  database = new AppDatabase(defaultDatabaseFile());
-  const auth = new AdminAuth(database);
+  const storage = await openBackendStorage({ initialize: false });
+  database = storage.database;
+  const auth = storage.auth;
   if (command === 'list') {
-    for (const account of database.sql.prepare('SELECT username,role,disabled FROM accounts').all()) console.log(`${account.username}: ${account.role}${account.disabled ? ' (disabled)' : ''}`);
+    const accounts = database.driver === 'postgres' ? await auth.list() : database.sql.prepare('SELECT username,role,disabled FROM accounts').all();
+    for (const account of accounts) console.log(`${account.username}: ${account.role}${account.disabled ? ' (disabled)' : ''}`);
   } else if (command === 'disable') {
-    database.transaction(() => {
+    if (database.driver === 'postgres') await auth.disable(username);
+    else database.transaction(() => {
       const result = database.sql.prepare('UPDATE accounts SET disabled=1 WHERE username=?').run(username.toLowerCase());
       if (!result.changes) throw new Error('That admin does not exist.');
       database.sql.prepare('DELETE FROM sessions WHERE username=?').run(username.toLowerCase());
@@ -44,5 +27,5 @@ try {
     await auth.createAccount(username, password, { reset: command === 'reset' });
     console.log(`Admin ${command === 'reset' ? 'password reset' : 'created'}. Sign in through the app.`);
   }
-} catch (error) { console.error(error.message); process.exitCode = 1; }
-finally { database?.close(); }
+} catch (error) { console.error(database ? error.message : 'Cannot open the database. Check settings, runtime role and migration.'); process.exitCode = 1; }
+finally { await database?.close(); }

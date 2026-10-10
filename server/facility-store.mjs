@@ -6,7 +6,7 @@ export class CatalogError extends Error {
   constructor(status, message) { super(message); this.status = status; }
 }
 
-function validate(value) {
+export function validateFacility(value) {
   const result = {};
   for (const [key, max] of Object.entries({ name: 200, category: 100, location: 500, description: 6000, hours: 200 })) {
     if (typeof value?.[key] !== 'string' || !value[key].trim() || value[key].length > max) throw new CatalogError(400, `Invalid ${key}.`);
@@ -69,7 +69,7 @@ export class FacilityStore {
     this.records = this.all();
     const index = id ? this.records.findIndex((item) => item.id === id) : -1;
     if (id && index < 0) throw new CatalogError(404, 'This place no longer exists.');
-    const fields = validate(value);
+    const fields = validateFacility(value);
     if (this.records.some((item) => item.id !== id && item.name.toLowerCase() === fields.name.toLowerCase())) throw new CatalogError(409, 'A place with this name already exists.');
     const existing = this.records[index];
     if (id && this.database) this.checkVersion(existing, value.version);

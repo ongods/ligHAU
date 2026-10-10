@@ -12,7 +12,7 @@ import { ChatLimits } from './chat-limits.mjs';
 import { FacilityStore } from './facility-store.mjs';
 import { SqliteUsageStore } from './sqlite-usage.mjs';
 import { loadCampusData } from './campus-data.mjs';
-import { createChatServer } from './chat-server.mjs';
+import { createChatServer, managedHttpsHostname } from './chat-server.mjs';
 
 test('accounts use salted hashes; sessions expire, revoke and require admin roles; login throttles', async () => {
   const db = new AppDatabase();
@@ -114,6 +114,81 @@ test('production rejects plaintext and ignores spoofed proxy headers', async (t)
     method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-Proto': 'https' }, body: '{}',
   });
   assert.equal(response.status, 403);
+});
+
+test('production accepts the configured HTTPS edge and preserves client identities', async (t) => {
+  const clients = [];
+  const origin = 'https://ongods.github.io';
+  const server = createChatServer({ production: true, origins: [origin], trustedProxyAddresses: ['127.0.0.1'],
+    auth: { login: async (_username, _password, client) => { clients.push(client); return { role: 'admin' }; } } });
+  server.listen(0, '127.0.0.1'); await once(server, 'listening');
+  t.after(() => { server.closeAllConnections(); server.close(); });
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const headers = { Origin: origin, 'Content-Type': 'application/json', 'X-Forwarded-Proto': 'https', 'X-Forwarded-For': '203.0.113.10' };
+  const login = await fetch(`${base}/api/admin/login`, { method: 'POST', headers, body: '{}' });
+  assert.equal(login.status, 200);
+  assert.equal(login.headers.get('access-control-allow-origin'), origin);
+  await fetch(`${base}/api/admin/login`, { method: 'POST', headers: { ...headers, 'X-Forwarded-For': '203.0.113.11' }, body: '{}' });
+  await fetch(`${base}/api/admin/login`, { method: 'POST', headers: { ...headers, 'X-Forwarded-For': '203.0.113.10, 198.51.100.1' }, body: '{}' });
+  assert.deepEqual(clients, ['203.0.113.10', '203.0.113.11', '127.0.0.1']);
+  const preflight = await fetch(`${base}/api/facilities`, { method: 'OPTIONS', headers });
+  assert.equal(preflight.status, 204);
+  assert.equal(preflight.headers.get('access-control-allow-origin'), origin);
+  assert.equal((await fetch(`${base}/api/facilities`, { headers: { ...headers, Origin: 'https://other.example' } })).status, 403);
+  assert.equal((await fetch(`${base}/api/facilities`, { headers: { ...headers, 'X-Forwarded-Proto': 'http' } })).status, 403);
+});
+
+test('loopback health probes work in production while API routes require HTTPS', async (t) => {
+  const server = createChatServer({ production: true });
+  server.listen(0, '127.0.0.1'); await once(server, 'listening');
+  t.after(() => { server.closeAllConnections(); server.close(); });
+  const base = `http://127.0.0.1:${server.address().port}`;
+  assert.equal((await fetch(`${base}/health`)).status, 200);
+  assert.equal((await fetch(`${base}/api/facilities`)).status, 403);
+  assert.equal((await fetch(`${base}/health`, { headers: { Origin: 'https://ongods.github.io' } })).status, 403);
+});
+
+test('Render HTTPS mode requires its runtime, exact service host, and still rejects spoofed clients and origins', async (t) => {
+  assert.equal(managedHttpsHostname({}), undefined);
+  assert.throws(() => managedHttpsHostname({ CHAT_HOSTING_PLATFORM: 'render' }), /platform-provided/);
+  const env = { CHAT_HOSTING_PLATFORM: 'render', RENDER: 'true', RENDER_SERVICE_TYPE: 'web', RENDER_EXTERNAL_HOSTNAME: 'lighau-test.onrender.com' };
+  const hostname = managedHttpsHostname(env);
+  assert.throws(() => managedHttpsHostname({ ...env, RENDER_EXTERNAL_HOSTNAME: 'attacker.example' }), /platform-provided/);
+  assert.throws(() => managedHttpsHostname({ ...env, RENDER_SERVICE_TYPE: 'pserv' }), /platform-provided/);
+  const clients = [];
+  const origin = 'https://ongods.github.io';
+  const server = createChatServer({ production: true, managedHostname: hostname, trustedProxyAddresses: [], origins: [origin],
+    auth: { login: async (_username, _password, client) => { clients.push(client); return {}; } } });
+  server.listen(0, '127.0.0.1'); await once(server, 'listening');
+  t.after(() => { server.closeAllConnections(); server.close(); });
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const headers = { Host: hostname, Origin: origin, 'Content-Type': 'application/json', 'X-Forwarded-For': '203.0.113.10' };
+  // Node fetch rewrites Host; use the HTTP client to simulate Render's ingress.
+  const { request } = await import('node:http');
+  const call = (path, options) => new Promise((resolve, reject) => {
+    const req = request(new URL(path, base), { method: options.method, headers: options.headers }, response => {
+      response.resume(); response.on('end', () => resolve({ status: response.statusCode }));
+    });
+    req.on('error', reject); req.end(options.body);
+  });
+  assert.equal((await call('/api/admin/login', { method: 'POST', headers, body: '{}' })).status, 200);
+  assert.deepEqual(clients, ['127.0.0.1']);
+  assert.equal((await call('/api/facilities', { headers })).status, 200);
+  assert.equal((await call('/api/facilities', { method: 'OPTIONS', headers })).status, 204);
+  assert.equal((await call('/api/facilities', { headers: { ...headers, Host: 'attacker.example', 'X-Forwarded-Proto': 'https' } })).status, 403);
+  assert.equal((await call('/api/facilities', { headers: { ...headers, Origin: 'https://attacker.example' } })).status, 403);
+});
+
+test('proxy trust requires exact IPs and untrusted peers cannot choose a client identity', async (t) => {
+  assert.throws(() => createChatServer({ trustedProxyAddresses: ['*'] }), /exact proxy IP/);
+  const clients = [];
+  const server = createChatServer({ trustedProxyAddresses: [],
+    auth: { login: async (_username, _password, client) => { clients.push(client); return {}; } } });
+  server.listen(0, '127.0.0.1'); await once(server, 'listening');
+  t.after(() => { server.closeAllConnections(); server.close(); });
+  await fetch(`http://127.0.0.1:${server.address().port}/api/admin/login`, { method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '203.0.113.10' }, body: '{}' });
+  assert.deepEqual(clients, ['127.0.0.1']);
 });
 
 test('HTTP login, versioned CRUD, chat map actions and usage survive a backend restart', async (t) => {

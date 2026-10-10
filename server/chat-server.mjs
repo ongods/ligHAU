@@ -1,12 +1,13 @@
 import { createServer } from 'node:http';
-import { pathToFileURL, fileURLToPath } from 'node:url';
+import { isIP } from 'node:net';
+import { pathToFileURL } from 'node:url';
 import { loadCampusData } from './campus-data.mjs';
 import { UsageStore, quota, mapTilerUsage } from './api-usage.mjs';
 import { FacilityStore, CatalogError } from './facility-store.mjs';
-import { AppDatabase, defaultDatabaseFile } from './database.mjs';
+import { AppDatabase } from './database.mjs';
 import { AdminAuth, AuthError } from './admin-auth.mjs';
 import { ChatLimits, LimitError } from './chat-limits.mjs';
-import { SqliteUsageStore } from './sqlite-usage.mjs';
+import { openBackendStorage } from './backend-storage.mjs';
 
 export class ChatError extends Error {
   constructor(status, message, code) { super(message); this.status = status; this.code = code; }
@@ -102,13 +103,27 @@ function allowedOrigin(origin, extras) {
   catch { return false; }
 }
 
+export function managedHttpsHostname(env = process.env) {
+  const platform = env.CHAT_HOSTING_PLATFORM || 'direct';
+  if (platform === 'direct') return undefined;
+  if (platform !== 'render') throw new Error('CHAT_HOSTING_PLATFORM must be direct or render.');
+  const hostname = env.RENDER_EXTERNAL_HOSTNAME;
+  if (env.RENDER !== 'true' || env.RENDER_SERVICE_TYPE !== 'web' ||
+      !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.onrender\.com$/.test(hostname || '')) {
+    throw new Error('Render HTTPS mode requires the platform-provided web-service environment.');
+  }
+  return hostname;
+}
+
 export function createChatServer({ apiKey = process.env.GEMINI_API_KEY, model = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite',
-  catalog = loadCampusData(), fetchImpl = fetch, origins = (process.env.CHAT_ALLOWED_ORIGINS || '').split(',').filter(Boolean),
+  catalog = loadCampusData(), fetchImpl = fetch, origins = (process.env.CHAT_ALLOWED_ORIGINS || '').split(',').map(value => value.trim()).filter(Boolean),
   database = new AppDatabase(), auth = new AdminAuth(database), usage = new UsageStore(),
-  limiter = new ChatLimits(database), production = process.env.NODE_ENV === 'production', trustedProxyAddresses = [],
+  limiter = new ChatLimits(database), production = process.env.NODE_ENV === 'production', trustedProxyAddresses = (process.env.CHAT_TRUSTED_PROXY_ADDRESSES || '').split(',').map(value => value.trim()).filter(Boolean),
+  managedHostname = managedHttpsHostname(),
   geminiLimits = { rpm: process.env.GEMINI_QUOTA_RPM, tpm: process.env.GEMINI_QUOTA_TPM, rpd: process.env.GEMINI_QUOTA_RPD },
   mapToken = process.env.MAPTILER_SERVICE_TOKEN, mapRequestQuota = process.env.MAPTILER_QUOTA_REQUESTS,
   mapSessionQuota = process.env.MAPTILER_QUOTA_SESSIONS, facilityStore = new FacilityStore({ catalog, database }) } = {}) {
+  if (trustedProxyAddresses.some(address => !isIP(address))) throw new Error('CHAT_TRUSTED_PROXY_ADDRESSES must contain exact proxy IP addresses.');
   let mapCache;
   let mapPending;
   const metrics = { requests: 0, failures: 0, rateLimited: 0, recentLatencyMs: [] };
@@ -145,8 +160,20 @@ export function createChatServer({ apiKey = process.env.GEMINI_API_KEY, model = 
       response.end(JSON.stringify(body));
     };
     try {
-    const client = request.socket.remoteAddress || 'unknown';
-    const secure = request.socket.encrypted || (trustedProxyAddresses.includes(client) && request.headers['x-forwarded-proto'] === 'https');
+    const peer = request.socket.remoteAddress || 'unknown';
+    const trustedProxy = trustedProxyAddresses.includes(peer);
+    // One trusted edge must overwrite this header with the actual client IP.
+    const forwardedClient = request.headers['x-forwarded-for'];
+    const client = trustedProxy && typeof forwardedClient === 'string' && isIP(forwardedClient) ? forwardedClient : peer;
+    // Render's public ingress redirects HTTP to HTTPS and terminates TLS before
+    // forwarding HTTP. This mode is gated by its runtime environment and exact
+    // service hostname; it does not grant trust to forwarded client IP headers.
+    const managedHttps = managedHostname && request.headers.host === managedHostname;
+    const secure = request.socket.encrypted || managedHttps || (trustedProxy && request.headers['x-forwarded-proto'] === 'https');
+    // Container health probes use loopback HTTP; API routes still require HTTPS.
+    if (request.method === 'GET' && request.url === '/health' && ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(peer) && !request.headers.origin) {
+      send(200, { service: 'ligHAU-chat', ready: Boolean(apiKey), model }); return;
+    }
     if (production && !secure) { send(403, { error: 'HTTPS is required.' }); return; }
     if (production && request.headers.origin && !origins.includes(request.headers.origin)) { send(403, { error: 'This origin is not allowed.' }); return; }
     if (!allowedOrigin(request.headers.origin, origins)) { send(403, { error: 'This origin is not allowed.' }); return; }
@@ -161,23 +188,23 @@ export function createChatServer({ apiKey = process.env.GEMINI_API_KEY, model = 
       response.writeHead(204); response.end(); return;
     }
     if (request.method === 'GET' && request.url === '/health') { send(200, { service: 'ligHAU-chat', ready: Boolean(apiKey), model }); return; }
-    if (request.method === 'GET' && request.url === '/api/facilities') { send(200, { facilities: facilityStore.all() }); return; }
+    if (request.method === 'GET' && request.url === '/api/facilities') { send(200, { facilities: await facilityStore.all() }); return; }
     if (request.method === 'POST' && request.url === '/api/admin/login') {
       const body = await readBody(request, 4096);
       send(200, await auth.login(body?.username, body?.password, client)); return;
     }
     if (request.method === 'POST' && request.url === '/api/admin/logout') {
-      auth.logout(request.headers.authorization); send(200, { signedOut: true }); return;
+      await auth.logout(request.headers.authorization); send(200, { signedOut: true }); return;
     }
     const catalogRoute = /^\/api\/admin\/facilities(?:\/([a-zA-Z0-9-]+))?$/.exec(request.url);
     if (catalogRoute && ['POST', 'PUT', 'DELETE'].includes(request.method)) {
-      const actor = auth.require(request.headers.authorization);
+      const actor = await auth.require(request.headers.authorization);
       try {
         const id = catalogRoute[1];
         if ((request.method === 'POST' && id) || (request.method !== 'POST' && !id)) throw new CatalogError(400, 'Invalid catalog operation.');
         if (request.method === 'DELETE') {
           const match = /^"(\d+)"$/.exec(request.headers['if-match'] || '');
-          send(200, { facilities: facilityStore.remove(id, { version: match ? Number(match[1]) : undefined, actor }) }); return;
+          send(200, { facilities: await facilityStore.remove(id, { version: match ? Number(match[1]) : undefined, actor }) }); return;
         }
         if (!request.headers['content-type']?.startsWith('application/json')) throw new CatalogError(415, 'Use application/json.');
         let size = 0;
@@ -189,15 +216,15 @@ export function createChatServer({ apiKey = process.env.GEMINI_API_KEY, model = 
         }
         let body;
         try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { throw new CatalogError(400, 'Invalid JSON.'); }
-        send(200, { facilities: facilityStore.upsert(id, body, actor) });
+        send(200, { facilities: await facilityStore.upsert(id, body, actor) });
       } catch (error) { send(error instanceof CatalogError ? error.status : 500, { error: error instanceof CatalogError ? error.message : 'Could not save the campus catalog.' }); }
       return;
     }
     if (request.method === 'GET' && request.url === '/api/admin/usage') {
-      auth.require(request.headers.authorization);
+      await auth.require(request.headers.authorization);
       send(200, { updatedAt: new Date().toISOString(), gemini: { configured: Boolean(apiKey), model,
-        ...usage.snapshot(model), limits: Object.fromEntries(Object.entries(geminiLimits).map(([key, value]) => [key, quota(value)])),
-        appLimit: limiter.snapshot() },
+        ...await usage.snapshot(model), limits: Object.fromEntries(Object.entries(geminiLimits).map(([key, value]) => [key, quota(value)])),
+        appLimit: await limiter.snapshot() },
         backend: { requests: metrics.requests, failures: metrics.failures, rateLimited: metrics.rateLimited,
           latencyP95Ms: [...metrics.recentLatencyMs].sort((a,b) => a-b)[Math.max(0, Math.ceil(metrics.recentLatencyMs.length * .95) - 1)] ?? 0 },
         maptiler: await getMapUsage() });
@@ -225,9 +252,9 @@ export function createChatServer({ apiKey = process.env.GEMINI_API_KEY, model = 
       const cancelled = new AbortController();
       response.once('close', () => { if (!response.writableFinished) cancelled.abort(); });
       lease = await limiter.acquire(client, cancelled.signal);
-      const reply = await generateReply(contents, { apiKey, model, catalog: facilityStore.all(),
+      const reply = await generateReply(contents, { apiKey, model, catalog: await facilityStore.all(),
         fetchImpl: async (...args) => {
-          event = usage.start(model);
+          event = await usage.start(model);
           const result = await fetchImpl(...args);
           providerStatus = result.status;
           return result;
@@ -235,15 +262,15 @@ export function createChatServer({ apiKey = process.env.GEMINI_API_KEY, model = 
       success = true;
       send(200, reply);
     } catch (error) {
-      if (providerStatus === 429) limiter.cooldown(60);
+      if (providerStatus === 429) await limiter.cooldown(60);
       if (error.retryAfter) response.setHeader('Retry-After', error.retryAfter);
       if (error.status === 429 && !error.retryAfter) response.setHeader('Retry-After', '60');
       send(error instanceof ChatError || error instanceof LimitError ? error.status : 500,
         { error: error instanceof ChatError || error instanceof LimitError ? error.message : 'The assistant encountered a problem. Please try again.',
           ...(error instanceof ChatError && error.code ? { code: error.code } : {}) });
     } finally {
-      try { if (event) usage.finish(event, { success, status: providerStatus, metadata }); }
-      finally { if (lease) limiter.release(lease); }
+      try { if (event) await usage.finish(event, { success, status: providerStatus, metadata }); }
+      finally { if (lease) await limiter.release(lease); }
     }
     } catch (error) {
       if (error.retryAfter) response.setHeader('Retry-After', error.retryAfter);
@@ -256,22 +283,34 @@ export function createChatServer({ apiKey = process.env.GEMINI_API_KEY, model = 
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  if (process.env.NODE_ENV === 'production' && !process.env.CAMPUS_DB_PATH) throw new Error('Production requires CAMPUS_DB_PATH on a persistent volume.');
+  try {
   const port = Number(process.env.CHAT_PORT || 8787);
+  const host = process.env.CHAT_HOST || '127.0.0.1';
+  const managedHostname = managedHttpsHostname();
+  if (!isIP(host)) throw new Error('CHAT_HOST must be an IP listen address.');
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('CHAT_PORT must be a valid port.');
-  const database = new AppDatabase(defaultDatabaseFile());
   const setting = (name, fallback, max) => {
     const value = Number(process.env[name] || fallback);
     if (!Number.isInteger(value) || value < 1 || value > max) throw new Error(`${name} must be between 1 and ${max}.`);
     return value;
   };
-  const server = createChatServer({ database,
-    limiter: new ChatLimits(database, { perClient: setting('CHAT_CLIENT_LIMIT', 5, 30), global: setting('CHAT_GLOBAL_LIMIT', 30, 100),
+  const storage = await openBackendStorage({ limits: { perClient: setting('CHAT_CLIENT_LIMIT', 5, 30), global: setting('CHAT_GLOBAL_LIMIT', 30, 100),
       daily: Math.min(setting('CHAT_DAILY_LIMIT', 100, 1000), quota(process.env.GEMINI_QUOTA_RPD) ?? Infinity),
-      rpm: Math.min(setting('CHAT_RPM_LIMIT', 5, 30), quota(process.env.GEMINI_QUOTA_RPM) ?? Infinity) }),
-    usage: new SqliteUsageStore(database, fileURLToPath(new URL('./.local/api-usage.json', import.meta.url))),
-    facilityStore: new FacilityStore({ database, catalog: loadCampusData(), file: fileURLToPath(new URL('./.local/facilities.json', import.meta.url)) }) });
+      rpm: Math.min(setting('CHAT_RPM_LIMIT', 5, 30), quota(process.env.GEMINI_QUOTA_RPM) ?? Infinity) } });
+  const server = createChatServer({ ...storage, managedHostname });
   server.requestTimeout = 45000;
-  server.on('error', () => { console.error('Cannot start the chat backend. Check whether its port is already in use.'); process.exitCode = 1; });
-  server.listen(port, '127.0.0.1', () => console.log(`ligHAU chat backend: http://127.0.0.1:${port}`));
+  server.on('error', async () => { console.error('Cannot start the chat backend. Check whether its port is already in use.'); await storage.database.close(); process.exitCode = 1; });
+  server.listen(port, host, () => console.log(`ligHAU chat backend listening on ${host}:${port}`));
+  let stopping = false;
+  for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => {
+    if (stopping) return;
+    stopping = true;
+    const deadline = setTimeout(() => process.exit(1), 40000);
+    deadline.unref();
+    server.close(async () => { await storage.database.close(); clearTimeout(deadline); });
+  });
+  } catch {
+    console.error('Cannot initialize the backend. Check database settings, TLS certificate, runtime role and applied migrations.');
+    process.exitCode = 1;
+  }
 }

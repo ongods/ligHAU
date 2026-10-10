@@ -3,6 +3,7 @@ import { promisify } from 'node:util';
 const derive = promisify(scrypt);
 const options = { N: 32768, r: 8, p: 3, maxmem: 64 * 1024 * 1024 };
 const digest = (value) => createHash('sha256').update(value).digest('hex');
+export { derive, options, digest };
 export class AuthError extends Error {
   constructor(status, message, retryAfter) { super(message); this.status = status; this.retryAfter = retryAfter; }
 }
