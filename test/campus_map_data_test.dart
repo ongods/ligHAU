@@ -9,6 +9,45 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test(
+    'renamed catalog buildings retain their footprint and pin identity',
+    () async {
+      final locations = await loadCampusMapLocations();
+      final original = mockFacilities.firstWhere(
+        (facility) => locations.containsKey(facility.name),
+      );
+      final renamed = Facility(
+        id: 'catalog-id',
+        sourceName: original.name,
+        name: 'Renamed campus building',
+        category: original.category,
+        location: original.location,
+        description: original.description,
+        hours: original.hours,
+        floors: original.floors,
+        icon: original.icon,
+      );
+      final pin =
+          (campusFacilityFeatures([renamed], locations, renamed)['features']
+                  as List)
+              .single;
+      final footprint =
+          (campusFacilityOutlines([renamed], locations, renamed)['features']
+                  as List)
+              .single;
+      final location = campusFacilityLocation(renamed, locations)!;
+      expect(pin['id'], footprint['id']);
+      expect(pin['id'], campusFacilityFeatureId(renamed, location));
+      expect(footprint['properties']['name'], renamed.name);
+      expect(footprint['properties']['selected'], true);
+      final cleared =
+          (campusFacilityOutlines([renamed], locations, null)['features']
+                  as List)
+              .single;
+      expect(cleared['properties']['selected'], false);
+    },
+  );
+
+  test(
     'new coordinate pins have stable IDs, selectable centers and no invented footprint',
     () {
       const facility = Facility(

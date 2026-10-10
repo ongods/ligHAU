@@ -36,6 +36,7 @@ class CampusVectorMap extends StatefulWidget {
 class CampusVectorMapState extends State<CampusVectorMap> {
   static const _campus = ml.LatLng(15.1325, 120.5901);
   static const _source = 'hau-facilities';
+  static const _outlineSource = 'hau-footprints';
   late Future<String> _style = loadCampusMapStyle();
   ml.MapLibreMapController? _controller;
   ml.LatLng? _pendingFocus;
@@ -89,7 +90,9 @@ class CampusVectorMapState extends State<CampusVectorMap> {
   ) {
     if (!layer.startsWith('hau-')) return;
     for (final facility in widget.facilities) {
-      if (widget.locations[facility.name]?.osmWayId.toString() == id) {
+      final location = campusFacilityLocation(facility, widget.locations);
+      if (location != null &&
+          campusFacilityFeatureId(facility, location).toString() == id) {
         widget.onSelected(facility);
         return;
       }
@@ -114,6 +117,43 @@ class CampusVectorMapState extends State<CampusVectorMap> {
           );
         }
       }
+      await controller.addGeoJsonSource(_outlineSource, _outlines);
+      await controller.addFillLayer(
+        _outlineSource,
+        'hau-building-fill',
+        const ml.FillLayerProperties(
+          fillColor: [
+            'case',
+            ['get', 'selected'],
+            '#780F25',
+            '#C8AD79',
+          ],
+          fillOpacity: [
+            'case',
+            ['get', 'selected'],
+            .45,
+            .22,
+          ],
+        ),
+      );
+      await controller.addLineLayer(
+        _outlineSource,
+        'hau-building-outline',
+        const ml.LineLayerProperties(
+          lineColor: [
+            'case',
+            ['get', 'selected'],
+            '#780F25',
+            '#A48A58',
+          ],
+          lineWidth: [
+            'case',
+            ['get', 'selected'],
+            2.5,
+            1,
+          ],
+        ),
+      );
       await controller.addGeoJsonSource(_source, _features);
       await controller.addSymbolLayer(
         _source,
@@ -122,8 +162,9 @@ class CampusVectorMapState extends State<CampusVectorMap> {
           iconImage: ['get', 'icon'],
           iconSize: .42,
           iconPadding: 4,
-          iconAllowOverlap: false,
-          iconIgnorePlacement: false,
+          // Campus pins stay visible when basemap labels change with zoom.
+          iconAllowOverlap: true,
+          iconIgnorePlacement: true,
         ),
         filter: [
           '==',
@@ -196,6 +237,12 @@ class CampusVectorMapState extends State<CampusVectorMap> {
     widget.selected,
   );
 
+  Map<String, dynamic> get _outlines => campusFacilityOutlines(
+    widget.facilities,
+    widget.locations,
+    widget.selected,
+  );
+
   void _queueFeatures() {
     if (!_ready) return;
     final generation = _generation;
@@ -203,6 +250,7 @@ class CampusVectorMapState extends State<CampusVectorMap> {
         .then((_) async {
           if (!mounted || !_ready || generation != _generation) return;
           await _controller?.setGeoJsonSource(_source, _features);
+          await _controller?.setGeoJsonSource(_outlineSource, _outlines);
         })
         .catchError((Object _) {
           if (mounted && generation == _generation) {
