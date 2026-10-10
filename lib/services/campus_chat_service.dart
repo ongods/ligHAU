@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
-import '../config/backend_config.dart';
-import 'facility_repository.dart';
+import '../services/facility_repository.dart';
 import '../models/facility.dart';
 
 class CampusChatException implements Exception {
@@ -33,9 +33,18 @@ class CampusChatService {
   final Uri endpoint;
   CampusChatService({http.Client? client, Uri? endpoint})
     : _client = client ?? http.Client(),
-      endpoint = endpoint ?? defaultEndpoint();
+      endpoint = endpoint ?? _defaultEndpoint();
 
-  static Uri defaultEndpoint() => backendEndpoint('/api/chat');
+  static Uri _defaultEndpoint() {
+    const configured = String.fromEnvironment('CHAT_API_BASE_URL');
+    if (configured.isNotEmpty) {
+      return Uri.parse(configured).resolve('/api/chat');
+    }
+    if (kIsWeb && !['localhost', '127.0.0.1', '::1'].contains(Uri.base.host)) {
+      return Uri.base.resolve('/api/chat');
+    }
+    return Uri.parse('http://127.0.0.1:8787/api/chat');
+  }
 
   Future<CampusChatReply> send(String question, List<ChatTurn> history) async {
     if (question.trim().isEmpty || question.length > 2000) {
@@ -51,7 +60,7 @@ class CampusChatService {
       final response = await _client
           .post(
             endpoint,
-            headers: {'Content-Type': 'application/json; charset=utf-8'},
+            headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
               'messages': [
                 ...recent.map((turn) => turn.toJson()),
@@ -104,7 +113,7 @@ class CampusChatService {
       );
     } catch (_) {
       throw const CampusChatException(
-        'Cannot reach the campus assistant. Check your connection and try again.',
+        'Cannot reach the campus assistant. Check your connection and that the chat backend is running.',
       );
     }
   }

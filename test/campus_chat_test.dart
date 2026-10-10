@@ -9,6 +9,7 @@ import 'package:final_project/data/mock_data.dart';
 import 'package:final_project/screens/chatbot_screen.dart';
 import 'package:final_project/screens/building_info_screen.dart';
 import 'package:final_project/services/campus_chat_service.dart';
+import 'package:final_project/services/facility_repository.dart';
 import 'package:final_project/theme/app_theme.dart';
 import 'support/fake_facility_repository.dart';
 
@@ -23,6 +24,53 @@ void main() {
     'facilityNames': [registrar.name],
     'mapFacilityNames': [registrar.name],
   });
+
+  test(
+    'chat actions resolve newly added buildings from the live catalog',
+    () async {
+      final added = mockFacilities.first.toJson()
+        ..['name'] = 'New research office'
+        ..['id'] = 'new-research-office'
+        ..['version'] = 1
+        ..['sourceName'] = null
+        ..['latitude'] = 15.1
+        ..['longitude'] = 120.5;
+      final repository = FacilityRepository(
+        pollInterval: null,
+        client: MockClient(
+          (_) async => http.Response.bytes(
+            utf8.encode(
+              jsonEncode({
+                'facilities': [added],
+              }),
+            ),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          ),
+        ),
+      );
+      FacilityRepository.instance = repository;
+      addTearDown(repository.dispose);
+      final service = CampusChatService(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'answer': 'Visit the new research office.',
+              'facilityNames': ['New research office'],
+              'mapFacilityNames': ['New research office'],
+            }),
+            200,
+          ),
+        ),
+      );
+      addTearDown(service.close);
+      final reply = await service.send('Where is the new office?', []);
+      expect(repository.loaded, isTrue);
+      expect(reply.facilities.single.name, 'New research office');
+      expect(reply.mapFacilityNames, {'New research office'});
+      expect(reply.facilities.single.id, 'new-research-office');
+    },
+  );
 
   test(
     'requests carry recent complete history, and only known facilities become actions',
