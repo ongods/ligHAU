@@ -8,6 +8,7 @@ class FacilityCard extends StatelessWidget {
   final bool selected;
   final String? subtitle;
   final EdgeInsetsGeometry margin;
+  final Color borderColor;
   const FacilityCard({
     super.key,
     required this.facility,
@@ -15,6 +16,7 @@ class FacilityCard extends StatelessWidget {
     this.selected = false,
     this.subtitle,
     this.margin = const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+    this.borderColor = AppColors.pathway,
   });
 
   @override
@@ -24,9 +26,7 @@ class FacilityCard extends StatelessWidget {
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(16),
       side: BorderSide(
-        color: selected
-            ? AppColors.primary.withValues(alpha: .3)
-            : AppColors.pathway,
+        color: selected ? AppColors.primary.withValues(alpha: .3) : borderColor,
       ),
     ),
     child: InkWell(

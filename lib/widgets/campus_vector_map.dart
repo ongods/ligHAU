@@ -13,6 +13,7 @@ import '../data/campus_map_features.dart';
 import '../data/campus_map_style.dart';
 import '../models/facility.dart';
 import '../theme/app_theme.dart';
+import 'panel_frame.dart';
 
 class CampusVectorMap extends StatefulWidget {
   final List<Facility> facilities;
@@ -286,129 +287,110 @@ class CampusVectorMapState extends State<CampusVectorMap> {
   }
 
   @override
-  Widget build(BuildContext context) => ClipRRect(
-    borderRadius: BorderRadius.circular(24),
-    child: ColoredBox(
-      color: AppColors.background,
-      child: Stack(
-        children: [
-          FutureBuilder<String>(
-            future: _style,
-            builder: (context, snapshot) {
-              if (snapshot.hasError) {
-                final error = snapshot.error;
-                return _unavailable(
-                  message: error is MapStyleException ? error.message : null,
-                );
-              }
-              if (!snapshot.hasData) return _loading();
-              return Stack(
-                fit: StackFit.expand,
-                children: [
-                  ml.MapLibreMap(
-                    key: ValueKey(_generation),
-                    styleString: snapshot.data!,
-                    initialCameraPosition: const ml.CameraPosition(
-                      target: _campus,
-                      zoom: 17.5,
-                    ),
-                    minMaxZoomPreference: const ml.MinMaxZoomPreference(15, 20),
-                    trackCameraPosition: true,
-                    compassEnabled: false,
-                    rotateGesturesEnabled: false,
-                    tiltGesturesEnabled: false,
-                    attributionButtonPosition: null,
-                    annotationOrder: const [],
-                    onMapCreated: _created,
-                    onStyleLoadedCallback: _styleLoaded,
-                    onMapClick: (_, _) => widget.onClear(),
-                  ),
-                  if (!_ready && !_failed) IgnorePointer(child: _loading()),
-                ],
-              );
-            },
-          ),
-          if (_failed) Positioned.fill(child: _unavailable()),
-          Positioned(
-            top: 16,
-            left: 16,
-            right: 76,
-            child: Align(
-              alignment: Alignment.topLeft,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 9,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.pathway),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.place_outlined,
-                      size: 14,
-                      color: AppColors.primary,
-                    ),
-                    SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        'Holy Angel University',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
+  Widget build(BuildContext context) => PanelFrame(
+    key: const ValueKey('campus-map-panel'),
+    child: Column(
+      children: [
+        _toolbar(),
+        const Divider(color: AppColors.panelBorder),
+        Expanded(
+          child: ColoredBox(
+            color: AppColors.background,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                FutureBuilder<String>(
+                  future: _style,
+                  builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      final error = snapshot.error;
+                      return _unavailable(
+                        message: error is MapStyleException
+                            ? error.message
+                            : null,
+                      );
+                    }
+                    if (!snapshot.hasData) return _loading();
+                    return Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        ml.MapLibreMap(
+                          key: ValueKey(_generation),
+                          styleString: snapshot.data!,
+                          initialCameraPosition: const ml.CameraPosition(
+                            target: _campus,
+                            zoom: 17.5,
+                          ),
+                          minMaxZoomPreference: const ml.MinMaxZoomPreference(
+                            15,
+                            20,
+                          ),
+                          trackCameraPosition: true,
+                          compassEnabled: false,
+                          rotateGesturesEnabled: false,
+                          tiltGesturesEnabled: false,
+                          attributionButtonPosition: null,
+                          annotationOrder: const [],
+                          onMapCreated: _created,
+                          onStyleLoadedCallback: _styleLoaded,
+                          onMapClick: (_, _) => widget.onClear(),
                         ),
-                      ),
-                    ),
-                  ],
+                        if (!_ready && !_failed)
+                          IgnorePointer(child: _loading()),
+                      ],
+                    );
+                  },
                 ),
-              ),
+                if (_failed) Positioned.fill(child: _unavailable()),
+              ],
             ),
           ),
-          Positioned(
-            top: 16,
-            right: 16,
-            child: Container(
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.pathway),
-              ),
-              child: Column(
-                children: [
-                  IconButton(
-                    tooltip: 'Zoom in',
-                    onPressed: _ready ? () => _zoom(1) : null,
-                    icon: const Icon(Icons.add_rounded, size: 20),
-                  ),
-                  IconButton(
-                    tooltip: 'Zoom out',
-                    onPressed: _ready ? () => _zoom(-1) : null,
-                    icon: const Icon(Icons.remove_rounded, size: 20),
-                  ),
-                  IconButton(
-                    tooltip: 'Recenter campus',
-                    onPressed: _ready
-                        ? () {
-                            _pendingFocus = null;
-                            _move(_campus, 17.5);
-                          }
-                        : null,
-                    icon: const Icon(
-                      Icons.center_focus_strong_rounded,
-                      size: 20,
-                    ),
-                  ),
-                ],
-              ),
+        ),
+        const Divider(color: AppColors.panelBorder),
+        _attribution(),
+      ],
+    ),
+  );
+
+  Widget _toolbar() => Padding(
+    key: const ValueKey('map-toolbar'),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+    child: Row(
+      children: [
+        const Icon(Icons.place_outlined, size: 18, color: AppColors.primary),
+        const SizedBox(width: 8),
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) => Text(
+              constraints.maxWidth < 180
+                  ? 'Campus map'
+                  : 'Holy Angel University',
+              style: Theme.of(context).textTheme.labelLarge,
             ),
           ),
-          Positioned(bottom: 0, left: 0, right: 0, child: _attribution()),
-        ],
-      ),
+        ),
+        const SizedBox(width: 8),
+        IconButton(
+          tooltip: 'Zoom in',
+          onPressed: _ready ? () => _zoom(1) : null,
+          icon: const Icon(Icons.add_rounded, size: 20),
+        ),
+        IconButton(
+          tooltip: 'Zoom out',
+          onPressed: _ready ? () => _zoom(-1) : null,
+          icon: const Icon(Icons.remove_rounded, size: 20),
+        ),
+        IconButton(
+          tooltip: 'Recenter campus',
+          onPressed: _ready
+              ? () {
+                  _pendingFocus = null;
+                  _move(_campus, 17.5);
+                }
+              : null,
+          icon: const Icon(Icons.center_focus_strong_rounded, size: 20),
+        ),
+      ],
     ),
   );
 
@@ -417,32 +399,36 @@ class CampusVectorMapState extends State<CampusVectorMap> {
   Widget _unavailable({String? message}) => ColoredBox(
     color: AppColors.background,
     child: Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.map_outlined, size: 36, color: AppColors.border),
-            const SizedBox(height: 12),
-            Text(
-              'The map couldn’t load.',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              message ?? 'You can still browse campus places below.',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton(onPressed: _retry, child: const Text('Try again')),
-          ],
+      child: SingleChildScrollView(
+        primary: false,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.map_outlined, size: 36, color: AppColors.border),
+              const SizedBox(height: 12),
+              Text(
+                'The map couldn’t load.',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                message ?? 'You can still browse campus places below.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton(onPressed: _retry, child: const Text('Try again')),
+            ],
+          ),
         ),
       ),
     ),
   );
 
   Widget _attribution() => Material(
+    key: const ValueKey('map-attribution'),
     color: AppColors.surface.withValues(alpha: .94),
     child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

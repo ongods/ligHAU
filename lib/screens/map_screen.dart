@@ -10,6 +10,7 @@ import '../widgets/category_filter.dart';
 import '../widgets/campus_vector_map.dart';
 import '../widgets/facility_card.dart';
 import '../widgets/catalog_status_banner.dart';
+import '../widgets/panel_frame.dart';
 import 'building_info_screen.dart';
 import 'chatbot_screen.dart';
 import 'login_screen.dart';
@@ -158,8 +159,15 @@ class _MapScreenState extends State<MapScreen> {
                   builder: (context, constraints) {
                     final wide = constraints.maxWidth >= 900;
                     final map = _map(locations);
+                    final scale = MediaQuery.textScalerOf(
+                      context,
+                    ).scale(1).clamp(1.0, 1.5);
+                    final minimumHeight = wide
+                        ? 500.0
+                        : (_selected == null ? 560.0 : 680.0) * scale;
+                    final Widget content;
                     if (wide) {
-                      return Padding(
+                      content = Padding(
                         padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -180,32 +188,48 @@ class _MapScreenState extends State<MapScreen> {
                           ],
                         ),
                       );
-                    }
-                    return Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 4, 20, 10),
-                          child: _search(),
-                        ),
-                        CategoryFilter(
-                          categories: categories,
-                          selected: _category,
-                          onSelected: _filter,
-                        ),
-                        const SizedBox(height: 10),
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: map,
+                    } else {
+                      content = Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+                            child: _search(),
                           ),
+                          CategoryFilter(
+                            horizontalPadding: 16,
+                            borderColor: AppColors.panelBorder,
+                            categories: categories,
+                            selected: _category,
+                            onSelected: _filter,
+                          ),
+                          const SizedBox(height: 10),
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              child: map,
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: _selected == null
+                                ? _browseBar(locations)
+                                : _selection(locations),
+                          ),
+                        ],
+                      );
+                    }
+                    if (constraints.maxHeight >= minimumHeight) return content;
+                    return SingleChildScrollView(
+                      primary: false,
+                      child: SizedBox(
+                        height: constraints.maxHeight.clamp(
+                          minimumHeight,
+                          double.infinity,
                         ),
-                        Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: _selected == null
-                              ? _browseBar(locations)
-                              : _selection(locations),
-                        ),
-                      ],
+                        child: content,
+                      ),
                     );
                   },
                 );
@@ -227,6 +251,10 @@ class _MapScreenState extends State<MapScreen> {
     decoration: InputDecoration(
       hintText: 'Find a building or facility',
       prefixIcon: const Icon(Icons.search_rounded),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: AppColors.panelBorder),
+      ),
       suffixIcon: _query.isEmpty
           ? null
           : IconButton(
@@ -247,74 +275,82 @@ class _MapScreenState extends State<MapScreen> {
     }),
   );
 
-  Widget _directory(Map<String, CampusMapLocation> locations) => Container(
-    decoration: BoxDecoration(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(24),
-      border: Border.all(color: AppColors.pathway),
-    ),
+  Widget _directory(Map<String, CampusMapLocation> locations) => PanelFrame(
+    key: const ValueKey('campus-directory-panel'),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        Expanded(
+          child: ListView(
+            primary: false,
             children: [
-              Text(
-                'CAMPUS GUIDE',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: AppColors.primary,
-                  letterSpacing: 1.5,
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'CAMPUS GUIDE',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: AppColors.primary,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Explore campus',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'A familiar place, an easier way to get there.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 24),
+                    _search(),
+                    const SizedBox(height: 16),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final category in categories)
+                          ChoiceChip(
+                            side: BorderSide(
+                              color: _category == category
+                                  ? AppColors.primary
+                                  : AppColors.panelBorder,
+                            ),
+                            label: Text(category),
+                            selected: _category == category,
+                            showCheckmark: false,
+                            selectedColor: AppColors.primary,
+                            backgroundColor: AppColors.background,
+                            labelStyle: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: _category == category
+                                  ? Colors.white
+                                  : AppColors.border,
+                            ),
+                            onSelected: (_) => _filter(category),
+                          ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Explore campus',
-                style: Theme.of(context).textTheme.headlineSmall,
+              const Divider(),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+                child: Text(
+                  '${_filtered.length} ${_filtered.length == 1 ? 'place' : 'places'} to explore',
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                'A familiar place, an easier way to get there.',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 24),
-              _search(),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  for (final category in categories)
-                    ChoiceChip(
-                      label: Text(category),
-                      selected: _category == category,
-                      showCheckmark: false,
-                      selectedColor: AppColors.primary,
-                      backgroundColor: AppColors.background,
-                      labelStyle: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: _category == category
-                            ? Colors.white
-                            : AppColors.border,
-                      ),
-                      onSelected: (_) => _filter(category),
-                    ),
-                ],
-              ),
+              _placeList(locations, shrinkWrap: true),
             ],
           ),
         ),
-        const Divider(),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
-          child: Text(
-            '${_filtered.length} ${_filtered.length == 1 ? 'place' : 'places'} to explore',
-            style: Theme.of(context).textTheme.labelSmall,
-          ),
-        ),
-        Expanded(child: _placeList(locations)),
         const Divider(),
         Padding(
           padding: const EdgeInsets.all(20),
@@ -342,6 +378,7 @@ class _MapScreenState extends State<MapScreen> {
   Widget _placeList(
     Map<String, CampusMapLocation> locations, {
     bool closeSheet = false,
+    bool shrinkWrap = false,
   }) {
     final facilities = _filtered;
     if (facilities.isEmpty) {
@@ -355,25 +392,42 @@ class _MapScreenState extends State<MapScreen> {
         ),
       );
     }
+    Widget placeCard(int i) {
+      final facility = facilities[i];
+      return FacilityCard(
+        borderColor: AppColors.panelBorder,
+        facility: facility,
+        selected: _selected == facility,
+        subtitle: campusFacilityLocation(facility, locations) != null
+            ? facility.category
+            : 'Location coming soon',
+        margin: EdgeInsets.zero,
+        onTap: () {
+          _select(facility, campusFacilityLocation(facility, locations));
+          if (closeSheet) Navigator.pop(context);
+        },
+      );
+    }
+
+    if (shrinkWrap) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
+        child: Column(
+          children: [
+            for (var i = 0; i < facilities.length; i++) ...[
+              if (i > 0) const SizedBox(height: 8),
+              placeCard(i),
+            ],
+          ],
+        ),
+      );
+    }
     return ListView.separated(
+      primary: false,
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
       itemCount: facilities.length,
       separatorBuilder: (_, _) => const SizedBox(height: 8),
-      itemBuilder: (_, i) {
-        final facility = facilities[i];
-        return FacilityCard(
-          facility: facility,
-          selected: _selected == facility,
-          subtitle: campusFacilityLocation(facility, locations) != null
-              ? facility.category
-              : 'Location coming soon',
-          margin: EdgeInsets.zero,
-          onTap: () {
-            _select(facility, campusFacilityLocation(facility, locations));
-            if (closeSheet) Navigator.pop(context);
-          },
-        );
-      },
+      itemBuilder: (_, i) => placeCard(i),
     );
   }
 
@@ -426,40 +480,46 @@ class _MapScreenState extends State<MapScreen> {
         ),
       );
 
-  Widget _browseBar(Map<String, CampusMapLocation> locations) => Row(
-    children: [
-      Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppColors.primaryTint,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: const Icon(Icons.explore_outlined, color: AppColors.primary),
-      ),
-      const SizedBox(width: 12),
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Explore campus',
-              style: Theme.of(context).textTheme.titleMedium,
+  Widget _browseBar(Map<String, CampusMapLocation> locations) => PanelFrame(
+    child: Padding(
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.primaryTint,
+              borderRadius: BorderRadius.circular(14),
             ),
-            Text(
-              '${_filtered.length} places to discover',
-              style: Theme.of(context).textTheme.bodySmall,
+            child: const Icon(Icons.explore_outlined, color: AppColors.primary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Explore campus',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                Text(
+                  '${_filtered.length} places to discover',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          TextButton(
+            onPressed: () => _showDirectory(locations),
+            child: const Text('Browse'),
+          ),
+        ],
       ),
-      TextButton(
-        onPressed: () => _showDirectory(locations),
-        child: const Text('Browse'),
-      ),
-    ],
+    ),
   );
 
-  Widget _selection(Map<String, CampusMapLocation> locations) => Card(
+  Widget _selection(Map<String, CampusMapLocation> locations) => PanelFrame(
+    key: const ValueKey('map-selection-panel'),
     child: Padding(
       padding: const EdgeInsets.all(16),
       child: Column(

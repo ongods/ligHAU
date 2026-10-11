@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:final_project/data/mock_data.dart';
+import 'package:final_project/models/facility.dart';
 import 'package:final_project/screens/chatbot_screen.dart';
 import 'package:final_project/screens/building_info_screen.dart';
 import 'package:final_project/services/campus_chat_service.dart';
@@ -212,6 +213,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Show on Map'), findsOneWidget);
       await tester.ensureVisible(find.text('Open Details'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Open Details'));
       await tester.pumpAndSettle();
       expect(
@@ -221,6 +223,76 @@ void main() {
             .name,
         registrar.name,
       );
+    },
+  );
+
+  testWidgets(
+    'multiple matches stay readable on mobile and map actions select the correct building',
+    (tester) async {
+      tester.view.physicalSize = const Size(360, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final matches = mockFacilities.take(4).toList();
+      final service = CampusChatService(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'answer':
+                  'Several buildings have offices. Compare these locations.',
+              'facilityNames': matches.map((f) => f.name).toList(),
+              'mapFacilityNames': [matches.last.name],
+            }),
+            200,
+          ),
+        ),
+      );
+      addTearDown(service.close);
+      Facility? selected;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () async {
+                  selected = await Navigator.push<Facility>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          ChatbotScreen(service: service, canReturnToMap: true),
+                    ),
+                  );
+                },
+                child: const Text('Open assistant'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open assistant'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'Where are the offices?');
+      await tester.tap(find.byTooltip('Send question'));
+      await tester.pumpAndSettle();
+      expect(find.text('4 matching locations'), findsOneWidget);
+      expect(find.text('Show on Map'), findsOneWidget);
+      expect(find.text('Open Details'), findsNWidgets(4));
+      for (final facility in matches) {
+        expect(find.text(facility.name), findsOneWidget);
+        expect(find.text(facility.location), findsOneWidget);
+      }
+      final answer = find.text(
+        'Several buildings have offices. Compare these locations.',
+      );
+      expect(tester.getRect(answer).top, greaterThanOrEqualTo(0));
+      expect(tester.getRect(answer).bottom, lessThan(800));
+      await tester.ensureVisible(find.text('Show on Map'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Show on Map'));
+      await tester.pumpAndSettle();
+      expect(selected?.name, matches.last.name);
+      expect(tester.takeException(), isNull);
     },
   );
 
@@ -248,11 +320,13 @@ void main() {
       await tester.tap(find.text('Try again'));
       await tester.pumpAndSettle();
       expect(calls, 2);
-      expect(find.text('Where is the Registrar?'), findsOneWidget);
       expect(
         find.text('The Registrar is in the Main Building.'),
         findsOneWidget,
       );
+      await tester.drag(find.byType(ListView), const Offset(0, 600));
+      await tester.pumpAndSettle();
+      expect(find.text('Where is the Registrar?'), findsOneWidget);
     },
   );
 }

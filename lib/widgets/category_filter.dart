@@ -5,12 +5,16 @@ class CategoryFilter extends StatelessWidget {
   final List<String> categories;
   final String selected;
   final ValueChanged<String> onSelected;
+  final double horizontalPadding;
+  final Color borderColor;
 
   const CategoryFilter({
     super.key,
     required this.categories,
     required this.selected,
     required this.onSelected,
+    this.horizontalPadding = 20,
+    this.borderColor = AppColors.pathway,
   });
 
   @override
@@ -19,7 +23,7 @@ class CategoryFilter extends StatelessWidget {
       height: 44,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+        padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
         itemCount: categories.length,
         separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.sm),
         itemBuilder: (context, index) {
@@ -37,7 +41,7 @@ class CategoryFilter extends StatelessWidget {
             ),
             backgroundColor: AppColors.surface,
             side: BorderSide(
-              color: isSelected ? AppColors.primary : AppColors.pathway,
+              color: isSelected ? AppColors.primary : borderColor,
             ),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),

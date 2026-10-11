@@ -85,52 +85,116 @@ class _LoginScreenState extends State<LoginScreen> {
     ),
   );
 
-  Widget _welcomePanel() => Container(
-    constraints: const BoxConstraints(minHeight: 650),
-    padding: const EdgeInsets.all(40),
+  Widget _welcomePanel({bool compact = false}) => Container(
+    height: compact ? 240 : null,
+    constraints: compact ? null : const BoxConstraints(minHeight: 650),
+    clipBehavior: Clip.antiAlias,
     decoration: BoxDecoration(
       color: AppColors.primary,
-      borderRadius: BorderRadius.circular(32),
+      borderRadius: BorderRadius.circular(compact ? 24 : 32),
+      boxShadow: [
+        BoxShadow(
+          color: AppColors.primary.withValues(alpha: .12),
+          blurRadius: 24,
+          offset: const Offset(0, 8),
+        ),
+      ],
     ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    foregroundDecoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(compact ? 24 : 32),
+      border: Border.all(color: Colors.white.withValues(alpha: .18)),
+    ),
+    child: Stack(
       children: [
-        const BrandLockup(inverse: true, subtitle: 'YOUR CAMPUS COMPANION'),
-        const SizedBox(height: 64),
-        Text(
-          'Your campus.\nA little closer.',
-          style: Theme.of(
-            context,
-          ).textTheme.displaySmall?.copyWith(color: Colors.white),
-        ),
-        const SizedBox(height: 20),
-        Text(
-          'Find the right building, discover a new corner,\nand feel at home at Holy Angel University.',
-          style: Theme.of(
-            context,
-          ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
-        ),
-        const SizedBox(height: 32),
-        const Expanded(
-          child: SizedBox(
-            width: double.infinity,
-            child: CustomPaint(painter: _CampusArtwork()),
+        Positioned.fill(
+          child: Image.asset(
+            'assets/branding/campus-welcome.jpg',
+            fit: BoxFit.cover,
+            alignment: compact
+                ? const Alignment(-.4, .2)
+                : const Alignment(-.55, 0),
+            excludeFromSemantics: true,
           ),
         ),
-        const SizedBox(height: 24),
-        const Row(
-          children: [
-            Icon(
-              Icons.location_on_outlined,
-              color: AppColors.secondary,
-              size: 16,
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                stops: const [0, .28, .52, 1],
+                colors: [
+                  AppColors.primary.withValues(alpha: .72),
+                  AppColors.primary.withValues(alpha: .08),
+                  const Color(0xFF27151D).withValues(alpha: .24),
+                  const Color(0xFF490A18).withValues(alpha: .97),
+                ],
+              ),
             ),
-            SizedBox(width: 8),
-            Text(
-              'Holy Angel University · Angeles City',
-              style: TextStyle(color: Colors.white70, fontSize: 11),
-            ),
-          ],
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.all(compact ? 24 : 40),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              BrandLockup(
+                inverse: true,
+                compact: compact,
+                subtitle: 'YOUR CAMPUS COMPANION',
+              ),
+              const Spacer(),
+              Container(
+                width: 36,
+                height: 3,
+                decoration: BoxDecoration(
+                  color: AppColors.secondary,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              SizedBox(height: compact ? 12 : 20),
+              Text(
+                'Your campus.\nA little closer.',
+                style:
+                    (compact
+                            ? Theme.of(context).textTheme.headlineSmall
+                            : Theme.of(context).textTheme.displaySmall)
+                        ?.copyWith(
+                          color: Colors.white,
+                          shadows: const [
+                            Shadow(color: Colors.black26, blurRadius: 12),
+                          ],
+                        ),
+              ),
+              if (!compact) ...[
+                const SizedBox(height: 16),
+                Text(
+                  'Find the right building, discover a new corner, '
+                  'and feel at home at Holy Angel University.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.white.withValues(alpha: .9),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Row(
+                  children: [
+                    Icon(
+                      Icons.location_on_outlined,
+                      color: AppColors.secondary,
+                      size: 16,
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Holy Angel University · Angeles City',
+                        style: TextStyle(color: Colors.white70, fontSize: 11),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
         ),
       ],
     ),
@@ -142,8 +206,8 @@ class _LoginScreenState extends State<LoginScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (mobile) ...[
-          const BrandLockup(subtitle: 'YOUR CAMPUS COMPANION'),
-          const SizedBox(height: 40),
+          _welcomePanel(compact: true),
+          const SizedBox(height: 32),
         ] else ...[
           Text(
             'WELCOME TO LIGHAU',
@@ -261,78 +325,4 @@ class _LoginScreenState extends State<LoginScreen> {
       ],
     );
   }
-}
-
-class _CampusArtwork extends CustomPainter {
-  const _CampusArtwork();
-  @override
-  void paint(Canvas canvas, Size size) {
-    final outline = Paint()
-      ..color = Colors.white.withValues(alpha: 0.13)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    final fill = Paint()..color = Colors.white.withValues(alpha: 0.05);
-    for (final r in [
-      const Rect.fromLTWH(.04, .14, .23, .34),
-      const Rect.fromLTWH(.38, .02, .25, .25),
-      const Rect.fromLTWH(.74, .2, .24, .42),
-      const Rect.fromLTWH(.22, .68, .32, .3),
-      const Rect.fromLTWH(.66, .8, .19, .2),
-    ]) {
-      final rect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(
-          r.left * size.width,
-          r.top * size.height,
-          r.width * size.width,
-          r.height * size.height,
-        ),
-        const Radius.circular(12),
-      );
-      canvas.drawRRect(rect, fill);
-      canvas.drawRRect(rect, outline);
-    }
-    final path = Path()
-      ..moveTo(size.width * .14, size.height * .62)
-      ..lineTo(size.width * .34, size.height * .62)
-      ..quadraticBezierTo(
-        size.width * .5,
-        size.height * .62,
-        size.width * .5,
-        size.height * .46,
-      )
-      ..lineTo(size.width * .5, size.height * .4)
-      ..quadraticBezierTo(
-        size.width * .5,
-        size.height * .34,
-        size.width * .57,
-        size.height * .34,
-      )
-      ..lineTo(size.width * .67, size.height * .34);
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = AppColors.secondary
-        ..strokeWidth = 3
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round,
-    );
-    canvas.drawCircle(
-      Offset(size.width * .14, size.height * .62),
-      5,
-      Paint()..color = Colors.white,
-    );
-    canvas.drawCircle(
-      Offset(size.width * .67, size.height * .34),
-      12,
-      Paint()..color = AppColors.secondary.withValues(alpha: .2),
-    );
-    canvas.drawCircle(
-      Offset(size.width * .67, size.height * .34),
-      5,
-      Paint()..color = AppColors.secondary,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_CampusArtwork oldDelegate) => false;
 }

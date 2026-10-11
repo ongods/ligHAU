@@ -18,6 +18,7 @@ class AppColors {
   static const Color error = Color(0xFFB3261E);
   static const Color background = Color(0xFFF8F7F3);
   static const Color pathway = Color(0xFFE7E2D8);
+  static const Color panelBorder = Color(0xFFC9C1B5);
   static const Color border = Color(0xFF6B6B6B);
   static const Color primaryTint = Color(0xFFF5EAED);
   static const Color goldTint = Color(0xFFFAF1DB);

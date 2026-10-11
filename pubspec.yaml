@@ -32,6 +32,7 @@ flutter:
     - assets/data/hau_osm.json
     - assets/fonts/OFL.txt
     - assets/branding/maptiler-logo.svg
+    - assets/branding/campus-welcome.jpg
   fonts:
     - family: Manrope
       fonts:
