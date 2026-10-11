@@ -19,7 +19,7 @@ ligHAU helps students and visitors find campus buildings, offices, and services 
 
 **Planned website:** https://ongods.github.io/ligHAU/ — online deployment still needs verification.
 
-**Demo video:** [Project demo folder](https://drive.google.com/drive/folders/1Pk6FD4yg_oScffTiVSDaCF8D57HLJPQR?usp=sharing) · [Demo record](docs/05-demo-video.md)
+**Demo video:** [Demo recording](docs/05-demo-video.md)
 
 **Course:** Applications Development and Emerging Technologies (6ADET), Holy Angel University
 
