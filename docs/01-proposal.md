@@ -6,7 +6,7 @@
 
 **Submitted proposal:** September 20, 2026 · **Documentation updated:** October 11, 2026
 
-Source: [Final Project Proposal (Revised)](<Ong - Final Project Proposal (Revised).pdf>), pages 1–9. The submitted scope is summarized below; implementation notes describe the repository as of the documentation update.
+Source: *Final Project Proposal (Revised)*, pages 1–9. The submitted scope is summarized below; implementation notes describe the repository as of the documentation update.
 
 ## The problem, in one sentence
 

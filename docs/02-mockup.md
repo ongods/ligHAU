@@ -4,7 +4,7 @@
 
 **Submitted mockup:** September 20, 2026 · **Documentation updated:** October 11, 2026
 
-Source: [Final Mockup](<Ong - Final Mockup.pdf>), pages 1–10. The six images below were extracted from that PDF. They show the **submitted visual concept**, not screenshots of the current app. Building metadata, distances, hours, account names, and dashboard totals shown in the mockups are illustrative, not verified campus or usage data.
+Source: *Final Mockup*, pages 1–10. The six images below were extracted from the submitted PDF. They show the **submitted visual concept**, not screenshots of the current app. Building metadata, distances, hours, account names, and dashboard totals shown in the mockups are illustrative, not verified campus or usage data.
 
 ## Mockup
 

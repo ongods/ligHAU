@@ -2,7 +2,7 @@
 
 **Project:** ligHAU · **Last checked:** October 11, 2026
 
-The [submitted proposal](<Ong - Final Project Proposal (Revised).pdf>) plans shared campus data, administrator access, Supabase persistence, and git-ignored configuration. This document describes protections found in the repository and verified by local tests, file/history scans, and review of existing images. Live host configuration, live database permissions, and provider retention settings remain outside this local review.
+The [proposal](01-proposal.md) records plans for shared campus data, administrator access, Supabase persistence, and git-ignored configuration. This document describes protections found in the repository and verified by local tests, file/history scans, and review of existing images. Live host configuration, live database permissions, and provider retention settings remain outside this local review.
 
 ## What this app stores
 

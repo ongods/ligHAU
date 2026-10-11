@@ -4,7 +4,7 @@
 
 **Submitted:** September 20, 2026 · **Updated:** October 11, 2026
 
-Source: [Final Design System (Revised)](<Ong - Final Design System (Revised).pdf>), pages 1–8. The PDF establishes the burgundy/gold palette, semantic Flutter styles, spacing constants, and reusable components. This document records that direction alongside the implemented differences.
+Source: *Final Design System (Revised)*, pages 1–8. The submission establishes the burgundy/gold palette, semantic Flutter styles, spacing constants, and reusable components. This document records that direction alongside the implemented differences.
 
 ligHAU uses warm ivory backgrounds, white information panels, burgundy actions, and gold highlights. Material 3 and a manually defined, light-only `ColorScheme.light()` preserve the submitted palette. [AppTheme](../lib/theme/app_theme.dart) centralizes the visual tokens.
 
