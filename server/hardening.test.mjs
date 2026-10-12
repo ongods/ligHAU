@@ -30,12 +30,17 @@ test('accounts use salted hashes; sessions expire, revoke and require admin role
   const second = await auth.login('campus-admin', 'a-private-test-password', 'good-client');
   auth.logout(`Bearer ${second.token}`);
   assert.throws(() => auth.require(`Bearer ${second.token}`), { status: 401 });
-  for (let i = 0; i < 5; i++) await assert.rejects(auth.login('unknown-user', 'wrong', 'brute-client'), { status: 401 });
+  for (let i = 0; i < 5; i++)
+    await assert.rejects(auth.login('unknown-user', 'wrong', 'brute-client'), { status: 401 });
   await assert.rejects(auth.login('unknown-user', 'wrong', 'brute-client'), { status: 429 });
   const third = await auth.login('campus-admin', 'a-private-test-password', 'good-client');
   db.sql.prepare("UPDATE accounts SET role='viewer' WHERE username='campus-admin'").run();
   assert.throws(() => auth.require(`Bearer ${third.token}`), { status: 401 });
-  assert.ok(!JSON.stringify(db.sql.prepare('SELECT * FROM audit').all()).includes('a-private-test-password'));
+  assert.ok(
+    !JSON.stringify(db.sql.prepare('SELECT * FROM audit').all()).includes(
+      'a-private-test-password',
+    ),
+  );
   db.close();
 });
 
@@ -43,18 +48,34 @@ test('SQLite connections reject lost updates and commit catalog plus audit atomi
   const dir = mkdtempSync(join(tmpdir(), 'lighau-conflict-'));
   const a = new AppDatabase(join(dir, 'db.sqlite'));
   const b = new AppDatabase(join(dir, 'db.sqlite'));
-  t.after(() => { a.close(); b.close(); rmSync(dir, { recursive: true }); });
+  t.after(() => {
+    a.close();
+    b.close();
+    rmSync(dir, { recursive: true });
+  });
   const first = new FacilityStore({ database: a, catalog: loadCampusData() });
   const second = new FacilityStore({ database: b, catalog: loadCampusData() });
   const original = first.all()[0];
   first.upsert(original.id, { ...original, description: 'First admin update' }, 'first-admin');
-  assert.throws(() => second.upsert(original.id, { ...original, description: 'Stale overwrite' }, 'second-admin'), { status: 412 });
+  assert.throws(
+    () =>
+      second.upsert(original.id, { ...original, description: 'Stale overwrite' }, 'second-admin'),
+    { status: 412 },
+  );
   assert.throws(() => second.remove(original.id, { version: original.version }), { status: 412 });
   assert.equal(second.all()[0].description, 'First admin update');
   const before = first.all();
   const audit = a.audit.bind(a);
-  a.audit = () => { throw new Error('Simulated audit failure'); };
-  assert.throws(() => first.upsert(original.id, { ...first.all()[0], description: 'Should roll back' }, 'first-admin'));
+  a.audit = () => {
+    throw new Error('Simulated audit failure');
+  };
+  assert.throws(() =>
+    first.upsert(
+      original.id,
+      { ...first.all()[0], description: 'Should roll back' },
+      'first-admin',
+    ),
+  );
   a.audit = audit;
   assert.deepEqual(first.all(), before);
   assert.equal(a.sql.prepare('SELECT count(*) AS n FROM audit').get().n, 1);
@@ -66,7 +87,11 @@ test('backup and restore retain catalog, audit and usage, while revoking restore
   const db = new AppDatabase(file);
   const store = new FacilityStore({ database: db, catalog: loadCampusData() });
   const original = store.all()[0];
-  store.upsert(original.id, { ...original, description: 'Recover this campus information' }, 'test-admin');
+  store.upsert(
+    original.id,
+    { ...original, description: 'Recover this campus information' },
+    'test-admin',
+  );
   const usage = new SqliteUsageStore(db);
   const event = usage.start('test-model');
   usage.finish(event, { success: true, status: 200, metadata: { totalTokenCount: 10 } });
@@ -75,13 +100,22 @@ test('backup and restore retain catalog, audit and usage, while revoking restore
   const session = await auth.login('recovery-admin', 'private-recovery-password', 'test');
   const command = fileURLToPath(new URL('./backup.mjs', import.meta.url));
   const backup = join(dir, 'backup.sqlite');
-  execFileSync(process.execPath, [command, 'backup', backup], { env: { ...process.env, CAMPUS_DB_PATH: file } });
+  execFileSync(process.execPath, [command, 'backup', backup], {
+    env: { ...process.env, CAMPUS_DB_PATH: file },
+  });
   const restoredFile = join(dir, 'restored.sqlite');
   execFileSync(process.execPath, [command, 'restore', backup, restoredFile]);
   const restored = new AppDatabase(restoredFile);
-  t.after(() => { restored.close(); db.close(); rmSync(dir, { recursive: true }); });
+  t.after(() => {
+    restored.close();
+    db.close();
+    rmSync(dir, { recursive: true });
+  });
   assert.ok(restored.integrity());
-  assert.equal(new FacilityStore({ database: restored, catalog: [] }).all()[0].description, 'Recover this campus information');
+  assert.equal(
+    new FacilityStore({ database: restored, catalog: [] }).all()[0].description,
+    'Recover this campus information',
+  );
   assert.equal(new SqliteUsageStore(restored).snapshot('test-model').total.requests, 1);
   assert.throws(() => new AdminAuth(restored).require(`Bearer ${session.token}`), { status: 401 });
   assert.ok(restored.sql.prepare("SELECT * FROM audit WHERE operation='database-restored'").get());
@@ -92,9 +126,14 @@ test('per-client and global limits plus provider concurrency are shared between 
   const dir = mkdtempSync(join(tmpdir(), 'lighau-limits-'));
   const a = new AppDatabase(join(dir, 'db.sqlite'));
   const b = new AppDatabase(join(dir, 'db.sqlite'));
-  t.after(() => { a.close(); b.close(); rmSync(dir, { recursive: true }); });
+  t.after(() => {
+    a.close();
+    b.close();
+    rmSync(dir, { recursive: true });
+  });
   const options = { perClient: 1, global: 3, daily: 3, rpm: 3, concurrency: 1, waitMs: 500 };
-  const first = new ChatLimits(a, options), second = new ChatLimits(b, options);
+  const first = new ChatLimits(a, options),
+    second = new ChatLimits(b, options);
   const lease = await first.acquire('client-a');
   await assert.rejects(second.acquire('client-a'), { status: 429 });
   const pending = second.acquire('client-b');
@@ -108,10 +147,16 @@ test('per-client and global limits plus provider concurrency are shared between 
 
 test('production rejects plaintext and ignores spoofed proxy headers', async (t) => {
   const server = createChatServer({ production: true });
-  server.listen(0, '127.0.0.1'); await once(server, 'listening');
-  t.after(() => { server.closeAllConnections(); server.close(); });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(() => {
+    server.closeAllConnections();
+    server.close();
+  });
   const response = await fetch(`http://127.0.0.1:${server.address().port}/api/admin/login`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-Proto': 'https' }, body: '{}',
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Forwarded-Proto': 'https' },
+    body: '{}',
   });
   assert.equal(response.status, 403);
 });
@@ -119,75 +164,190 @@ test('production rejects plaintext and ignores spoofed proxy headers', async (t)
 test('production accepts the configured HTTPS edge and preserves client identities', async (t) => {
   const clients = [];
   const origin = 'https://ongods.github.io';
-  const server = createChatServer({ production: true, origins: [origin], trustedProxyAddresses: ['127.0.0.1'],
-    auth: { login: async (_username, _password, client) => { clients.push(client); return { role: 'admin' }; } } });
-  server.listen(0, '127.0.0.1'); await once(server, 'listening');
-  t.after(() => { server.closeAllConnections(); server.close(); });
+  const server = createChatServer({
+    production: true,
+    origins: [origin],
+    trustedProxyAddresses: ['127.0.0.1'],
+    auth: {
+      login: async (_username, _password, client) => {
+        clients.push(client);
+        return { role: 'admin' };
+      },
+    },
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(() => {
+    server.closeAllConnections();
+    server.close();
+  });
   const base = `http://127.0.0.1:${server.address().port}`;
-  const headers = { Origin: origin, 'Content-Type': 'application/json', 'X-Forwarded-Proto': 'https', 'X-Forwarded-For': '203.0.113.10' };
+  const headers = {
+    Origin: origin,
+    'Content-Type': 'application/json',
+    'X-Forwarded-Proto': 'https',
+    'X-Forwarded-For': '203.0.113.10',
+  };
   const login = await fetch(`${base}/api/admin/login`, { method: 'POST', headers, body: '{}' });
   assert.equal(login.status, 200);
   assert.equal(login.headers.get('access-control-allow-origin'), origin);
-  await fetch(`${base}/api/admin/login`, { method: 'POST', headers: { ...headers, 'X-Forwarded-For': '203.0.113.11' }, body: '{}' });
-  await fetch(`${base}/api/admin/login`, { method: 'POST', headers: { ...headers, 'X-Forwarded-For': '203.0.113.10, 198.51.100.1' }, body: '{}' });
+  await fetch(`${base}/api/admin/login`, {
+    method: 'POST',
+    headers: { ...headers, 'X-Forwarded-For': '203.0.113.11' },
+    body: '{}',
+  });
+  await fetch(`${base}/api/admin/login`, {
+    method: 'POST',
+    headers: { ...headers, 'X-Forwarded-For': '203.0.113.10, 198.51.100.1' },
+    body: '{}',
+  });
   assert.deepEqual(clients, ['203.0.113.10', '203.0.113.11', '127.0.0.1']);
   const preflight = await fetch(`${base}/api/facilities`, { method: 'OPTIONS', headers });
   assert.equal(preflight.status, 204);
   assert.equal(preflight.headers.get('access-control-allow-origin'), origin);
-  assert.equal((await fetch(`${base}/api/facilities`, { headers: { ...headers, Origin: 'https://other.example' } })).status, 403);
-  assert.equal((await fetch(`${base}/api/facilities`, { headers: { ...headers, 'X-Forwarded-Proto': 'http' } })).status, 403);
+  assert.equal(
+    (
+      await fetch(`${base}/api/facilities`, {
+        headers: { ...headers, Origin: 'https://other.example' },
+      })
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await fetch(`${base}/api/facilities`, {
+        headers: { ...headers, 'X-Forwarded-Proto': 'http' },
+      })
+    ).status,
+    403,
+  );
 });
 
 test('loopback health probes work in production while API routes require HTTPS', async (t) => {
   const server = createChatServer({ production: true });
-  server.listen(0, '127.0.0.1'); await once(server, 'listening');
-  t.after(() => { server.closeAllConnections(); server.close(); });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(() => {
+    server.closeAllConnections();
+    server.close();
+  });
   const base = `http://127.0.0.1:${server.address().port}`;
   assert.equal((await fetch(`${base}/health`)).status, 200);
   assert.equal((await fetch(`${base}/api/facilities`)).status, 403);
-  assert.equal((await fetch(`${base}/health`, { headers: { Origin: 'https://ongods.github.io' } })).status, 403);
+  assert.equal(
+    (await fetch(`${base}/health`, { headers: { Origin: 'https://ongods.github.io' } })).status,
+    403,
+  );
 });
 
 test('Render HTTPS mode requires its runtime, exact service host, and still rejects spoofed clients and origins', async (t) => {
   assert.equal(managedHttpsHostname({}), undefined);
-  assert.throws(() => managedHttpsHostname({ CHAT_HOSTING_PLATFORM: 'render' }), /platform-provided/);
-  const env = { CHAT_HOSTING_PLATFORM: 'render', RENDER: 'true', RENDER_SERVICE_TYPE: 'web', RENDER_EXTERNAL_HOSTNAME: 'lighau-test.onrender.com' };
+  assert.throws(
+    () => managedHttpsHostname({ CHAT_HOSTING_PLATFORM: 'render' }),
+    /platform-provided/,
+  );
+  const env = {
+    CHAT_HOSTING_PLATFORM: 'render',
+    RENDER: 'true',
+    RENDER_SERVICE_TYPE: 'web',
+    RENDER_EXTERNAL_HOSTNAME: 'lighau-test.onrender.com',
+  };
   const hostname = managedHttpsHostname(env);
-  assert.throws(() => managedHttpsHostname({ ...env, RENDER_EXTERNAL_HOSTNAME: 'attacker.example' }), /platform-provided/);
-  assert.throws(() => managedHttpsHostname({ ...env, RENDER_SERVICE_TYPE: 'pserv' }), /platform-provided/);
+  assert.throws(
+    () => managedHttpsHostname({ ...env, RENDER_EXTERNAL_HOSTNAME: 'attacker.example' }),
+    /platform-provided/,
+  );
+  assert.throws(
+    () => managedHttpsHostname({ ...env, RENDER_SERVICE_TYPE: 'pserv' }),
+    /platform-provided/,
+  );
   const clients = [];
   const origin = 'https://ongods.github.io';
-  const server = createChatServer({ production: true, managedHostname: hostname, trustedProxyAddresses: [], origins: [origin],
-    auth: { login: async (_username, _password, client) => { clients.push(client); return {}; } } });
-  server.listen(0, '127.0.0.1'); await once(server, 'listening');
-  t.after(() => { server.closeAllConnections(); server.close(); });
+  const server = createChatServer({
+    production: true,
+    managedHostname: hostname,
+    trustedProxyAddresses: [],
+    origins: [origin],
+    auth: {
+      login: async (_username, _password, client) => {
+        clients.push(client);
+        return {};
+      },
+    },
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(() => {
+    server.closeAllConnections();
+    server.close();
+  });
   const base = `http://127.0.0.1:${server.address().port}`;
-  const headers = { Host: hostname, Origin: origin, 'Content-Type': 'application/json', 'X-Forwarded-For': '203.0.113.10' };
+  const headers = {
+    Host: hostname,
+    Origin: origin,
+    'Content-Type': 'application/json',
+    'X-Forwarded-For': '203.0.113.10',
+  };
   // Node fetch rewrites Host; use the HTTP client to simulate Render's ingress.
   const { request } = await import('node:http');
-  const call = (path, options) => new Promise((resolve, reject) => {
-    const req = request(new URL(path, base), { method: options.method, headers: options.headers }, response => {
-      response.resume(); response.on('end', () => resolve({ status: response.statusCode }));
+  const call = (path, options) =>
+    new Promise((resolve, reject) => {
+      const req = request(
+        new URL(path, base),
+        { method: options.method, headers: options.headers },
+        (response) => {
+          response.resume();
+          response.on('end', () => resolve({ status: response.statusCode }));
+        },
+      );
+      req.on('error', reject);
+      req.end(options.body);
     });
-    req.on('error', reject); req.end(options.body);
-  });
-  assert.equal((await call('/api/admin/login', { method: 'POST', headers, body: '{}' })).status, 200);
+  assert.equal(
+    (await call('/api/admin/login', { method: 'POST', headers, body: '{}' })).status,
+    200,
+  );
   assert.deepEqual(clients, ['127.0.0.1']);
   assert.equal((await call('/api/facilities', { headers })).status, 200);
   assert.equal((await call('/api/facilities', { method: 'OPTIONS', headers })).status, 204);
-  assert.equal((await call('/api/facilities', { headers: { ...headers, Host: 'attacker.example', 'X-Forwarded-Proto': 'https' } })).status, 403);
-  assert.equal((await call('/api/facilities', { headers: { ...headers, Origin: 'https://attacker.example' } })).status, 403);
+  assert.equal(
+    (
+      await call('/api/facilities', {
+        headers: { ...headers, Host: 'attacker.example', 'X-Forwarded-Proto': 'https' },
+      })
+    ).status,
+    403,
+  );
+  assert.equal(
+    (await call('/api/facilities', { headers: { ...headers, Origin: 'https://attacker.example' } }))
+      .status,
+    403,
+  );
 });
 
 test('proxy trust requires exact IPs and untrusted peers cannot choose a client identity', async (t) => {
   assert.throws(() => createChatServer({ trustedProxyAddresses: ['*'] }), /exact proxy IP/);
   const clients = [];
-  const server = createChatServer({ trustedProxyAddresses: [],
-    auth: { login: async (_username, _password, client) => { clients.push(client); return {}; } } });
-  server.listen(0, '127.0.0.1'); await once(server, 'listening');
-  t.after(() => { server.closeAllConnections(); server.close(); });
-  await fetch(`http://127.0.0.1:${server.address().port}/api/admin/login`, { method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '203.0.113.10' }, body: '{}' });
+  const server = createChatServer({
+    trustedProxyAddresses: [],
+    auth: {
+      login: async (_username, _password, client) => {
+        clients.push(client);
+        return {};
+      },
+    },
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(() => {
+    server.closeAllConnections();
+    server.close();
+  });
+  await fetch(`http://127.0.0.1:${server.address().port}/api/admin/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '203.0.113.10' },
+    body: '{}',
+  });
   assert.deepEqual(clients, ['127.0.0.1']);
 });
 
@@ -200,32 +360,107 @@ test('HTTP login, versioned CRUD, chat map actions and usage survive a backend r
   let server;
   const start = async () => {
     const store = new FacilityStore({ database: db, catalog: loadCampusData() });
-    server = createChatServer({ database: db, auth: new AdminAuth(db), facilityStore: store, usage: new SqliteUsageStore(db), apiKey: 'test-key', mapToken: '',
-      fetchImpl: async () => Response.json({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify({ answer: 'Find the research center on the map.', facilityNames: ['Restart research center'] }) }] } }] }) });
-    server.listen(0, '127.0.0.1'); await once(server, 'listening');
+    server = createChatServer({
+      database: db,
+      auth: new AdminAuth(db),
+      facilityStore: store,
+      usage: new SqliteUsageStore(db),
+      apiKey: 'test-key',
+      mapToken: '',
+      fetchImpl: async () =>
+        Response.json({
+          candidates: [
+            {
+              finishReason: 'STOP',
+              content: {
+                parts: [
+                  {
+                    text: JSON.stringify({
+                      answer: 'Find the research center on the map.',
+                      facilityNames: ['Restart research center'],
+                    }),
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+    });
+    server.listen(0, '127.0.0.1');
+    await once(server, 'listening');
     return `http://127.0.0.1:${server.address().port}`;
   };
-  const stop = async () => { server.closeAllConnections(); await new Promise((resolve) => server.close(resolve)); db.close(); };
+  const stop = async () => {
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
+    db.close();
+  };
   let base = await start();
-  t.after(async () => { await stop(); rmSync(dir, { recursive: true }); });
-  const login = await fetch(`${base}/api/admin/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'http-admin', password: 'private-http-password' }) });
+  t.after(async () => {
+    await stop();
+    rmSync(dir, { recursive: true });
+  });
+  const login = await fetch(`${base}/api/admin/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'http-admin', password: 'private-http-password' }),
+  });
   assert.equal(login.status, 200);
   const session = await login.json();
   const headers = { Authorization: `Bearer ${session.token}`, 'Content-Type': 'application/json' };
-  const post = await fetch(`${base}/api/admin/facilities`, { method: 'POST', headers, body: JSON.stringify({ ...loadCampusData()[0], name: 'Restart research center', latitude: 15.1325, longitude: 120.5901 }) });
+  const post = await fetch(`${base}/api/admin/facilities`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      ...loadCampusData()[0],
+      name: 'Restart research center',
+      latitude: 15.1325,
+      longitude: 120.5901,
+    }),
+  });
   assert.equal(post.status, 200);
   const place = (await post.json()).facilities.find((f) => f.name === 'Restart research center');
-  const chat = await fetch(`${base}/api/chat`, { method: 'POST', headers, body: JSON.stringify({ messages: [{ role: 'user', text: 'Where is the research center?' }] }) });
+  const chat = await fetch(`${base}/api/chat`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ messages: [{ role: 'user', text: 'Where is the research center?' }] }),
+  });
   assert.deepEqual((await chat.json()).mapFacilityNames, [place.name]);
-  await stop(); db = new AppDatabase(file); base = await start();
+  await stop();
+  db = new AppDatabase(file);
+  base = await start();
   const catalog = await (await fetch(`${base}/api/facilities`)).json();
   assert.ok(catalog.facilities.some((f) => f.id === place.id && f.latitude === 15.1325));
-  const edited = await fetch(`${base}/api/admin/facilities/${place.id}`, { method: 'PUT', headers, body: JSON.stringify({ ...place, description: 'Persisted update' }) });
+  const edited = await fetch(`${base}/api/admin/facilities/${place.id}`, {
+    method: 'PUT',
+    headers,
+    body: JSON.stringify({ ...place, description: 'Persisted update' }),
+  });
   assert.equal(edited.status, 200);
-  assert.equal((await fetch(`${base}/api/admin/facilities/${place.id}`, { method: 'PUT', headers, body: JSON.stringify(place) })).status, 412);
+  assert.equal(
+    (
+      await fetch(`${base}/api/admin/facilities/${place.id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(place),
+      })
+    ).status,
+    412,
+  );
   const latest = (await edited.json()).facilities.find((f) => f.id === place.id);
-  assert.equal((await fetch(`${base}/api/admin/facilities/${place.id}`, { method: 'DELETE', headers })).status, 428);
-  assert.equal((await fetch(`${base}/api/admin/facilities/${place.id}`, { method: 'DELETE', headers: { ...headers, 'If-Match': `"${latest.version}"` } })).status, 200);
+  assert.equal(
+    (await fetch(`${base}/api/admin/facilities/${place.id}`, { method: 'DELETE', headers })).status,
+    428,
+  );
+  assert.equal(
+    (
+      await fetch(`${base}/api/admin/facilities/${place.id}`, {
+        method: 'DELETE',
+        headers: { ...headers, 'If-Match': `"${latest.version}"` },
+      })
+    ).status,
+    200,
+  );
   const usage = await (await fetch(`${base}/api/admin/usage`, { headers })).json();
   assert.equal(usage.gemini.total.requests, 1);
   assert.equal(usage.gemini.appLimit.used, 1);
