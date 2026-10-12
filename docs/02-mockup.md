@@ -14,7 +14,7 @@ Source: *Final Mockup*, pages 1–10. The six images below were extracted from t
 
 **PDF pages 1–2.** A cream background, burgundy ligHAU wordmark, labeled account fields, password visibility control, primary sign-in button, and guest option introduce the app. The submitted concept also includes password recovery.
 
-**Current design:** the welcome page pairs the supplied campus photo with “Your campus. A little closer.” A burgundy gradient supports white text, a gold accent ties the photo to the theme, and rounded framing gives it the same visual language as the form. Desktop uses two columns; mobile places the photo above a scrollable form. Guest access opens the map, and a separate administrator action opens real admin authentication. Ordinary sign-in is a prototype; password recovery is not implemented.
+**Current design:** the desktop welcome page pairs the supplied campus photo with “Your campus. A little closer.” A burgundy gradient supports white text, a gold accent ties the photo to the theme, and rounded framing gives it the same visual language as the form. Desktop uses two columns; mobile shows the ligHAU brand above “Find your way around HAU.” and a scrollable form. Guest access opens the map, and a separate administrator action opens real admin authentication. Ordinary sign-in is a prototype; password recovery is not implemented.
 
 ### 2. Campus map
 
@@ -102,7 +102,7 @@ flowchart TD
 
 | Screen or surface | Main content | User action and destination |
 | --- | --- | --- |
-| Welcome | Campus photograph, brand, account fields, guest/admin access | Guest or completed prototype fields → public map; administrator access → admin sign-in. |
+| Welcome | Desktop campus photograph, brand, account fields, guest/admin access | Guest or completed prototype fields → public map; administrator access → admin sign-in. |
 | Campus map | Search, categories, directory, canvas, map controls, selected place | Select a result or outline → place selection; details → details page; assistant → chat page; Browse → mobile directory sheet. |
 | Building details | Catalog description, location, hours, floors when known, services | Back to map → selected place on the map, when its position is available. |
 | Search | Query and matching catalog cards | Open details or choose a place on the map. Primary browsing also provides inline search. |

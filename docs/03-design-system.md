@@ -67,7 +67,7 @@ The welcome screen uses two columns from 900 px wide and a single scrollable col
 
 ## Photography and branding
 
-The welcome hero uses the supplied [campus photograph](../assets/branding/campus-welcome.jpg) with `BoxFit.cover`. A burgundy fade supports the white “Your campus. A little closer.” headline, and a gold accent connects the image to the theme. A subtle shadow and rounded corners integrate it with the form: 32 px on desktop, 24 px on mobile, with a compact mobile hero approximately 240 px high.
+The desktop welcome hero uses the supplied [campus photograph](../assets/branding/campus-welcome.jpg) with `BoxFit.cover`. A burgundy fade supports the white “Your campus. A little closer.” headline, and a gold accent connects the image to the theme. A subtle shadow and 32 px rounded corners integrate it with the form. Below 900 px, the welcome screen uses the ligHAU brand header and a 48 px gap before the form headline, without a photo hero.
 
 The ligHAU mark is app branding, not an official university seal. Its direction arrow and gold location dot also appear in the browser favicon. Welcome, map, and secondary-page headers use coordinated mark variants.
 
@@ -94,7 +94,7 @@ The PDF also proposes `AppSideNav`, `TopAppBar`, and a floating `ChatbotButton` 
 - **Forms:** labels, validation, focus borders, loading states, and disabled submission explain progress. Administrator errors distinguish credentials, throttling, and connection problems.
 - **Catalog:** loading, stale/sample data, failure, and retry states are explicit. Unknown floors and unverified attributes are not replaced with invented badges.
 
-The [mockup document](02-mockup.md) embeds the submitted screen designs and explains current behavior. Existing `welcome-mobile.png`, `welcome-desktop.png`, and `place-mobile.png` are earlier implementation previews that predate the latest photo/panel changes.
+The [mockup document](02-mockup.md) embeds the submitted screen designs and explains current behavior. `welcome-mobile.png` and `welcome-desktop.png` show the current welcome layouts. `place-mobile.png` is an earlier implementation preview that predates the latest panel changes.
 
 ## Validation
 
@@ -104,7 +104,7 @@ Existing automated checks include:
 - [campus_layout_test.dart](../test/campus_layout_test.dart): narrow/short maps, desktop layout, 1.3× text scaling, separated controls/selection, and chat with a visible keyboard.
 - [campus_chat_test.dart](../test/campus_chat_test.dart): multiple building matches and navigation to map selection.
 
-These are implementation checks, not a complete accessibility audit. The Flutter suite was not rerun for this documentation-only change. Manual keyboard navigation, screen-reader behavior, and contrast over the photo should be reviewed before claiming accessibility compliance.
+The mobile welcome restoration passed analysis and all 20 tests in the responsive-layout and administrator-access suites. These are implementation checks, not a complete accessibility audit. Manual keyboard navigation, screen-reader behavior, and contrast over the desktop photo should be reviewed before claiming accessibility compliance.
 
 ## Changes since the last version
 

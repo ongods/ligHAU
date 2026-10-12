@@ -34,13 +34,13 @@ This is a public project repository. Local credentials and databases are ignored
 - Ask follow-up questions and compare multiple building matches through numbered cards with individual details/map actions.
 - Sign in as an administrator to add, edit, and delete shared records with saved changes, conflict detection, and auditing.
 - Monitor Gemini and map-provider usage from the administrator dashboard.
-- Use the campus-photo welcome screen and responsive directory/chat layouts on narrow or wide screens.
+- Use the responsive welcome screen with a simple mobile brand header and desktop campus photo, plus responsive directory/chat layouts.
 
 Guest browsing requires no account. The ordinary welcome sign-in is a prototype navigation flow, not student authentication. GPS routing, 3D buildings, reviews, and dedicated room or chatbot-knowledge editors are not implemented. Operating hours are prototype data; unknown floor counts and map positions remain explicitly unknown.
 
 ## Screenshots
 
-These are earlier implementation previews, before the October 11 welcome-photo and map/chat panel refinements. The [design system](docs/03-design-system.md) describes current styling; the [mockup document](docs/02-mockup.md) contains the six submitted conceptual designs.
+The welcome screenshots show the current mobile brand header and desktop campus photo. The building-details image is an earlier implementation preview, before the October 11 panel refinements. The [design system](docs/03-design-system.md) describes current styling; the [mockup document](docs/02-mockup.md) contains the six submitted conceptual designs.
 
 | Welcome on mobile | Welcome on desktop | Building details |
 | --- | --- | --- |
