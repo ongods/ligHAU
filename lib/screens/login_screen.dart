@@ -206,8 +206,8 @@ class _LoginScreenState extends State<LoginScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (mobile) ...[
-          _welcomePanel(compact: true),
-          const SizedBox(height: 32),
+          const BrandLockup(subtitle: 'YOUR CAMPUS COMPANION'),
+          const SizedBox(height: 48),
         ] else ...[
           Text(
             'WELCOME TO LIGHAU',
