@@ -273,7 +273,7 @@ The proposal, mockup, design system, security/privacy record, and AI-use log are
 
 ## AI use
 
-Sean built the initial Flutter frontend scaffolding, shared controls, basic button behavior, and navigation in the September 29–October 2 commits. Codex/ChatGPT assisted with later map/backend integration, responsive design, debugging, deployment preparation, tests, and documentation. [AI-USAGE.md](AI-USAGE.md) records the original contributions, eight retrospective assistance entries, and three correction cases with commit evidence. Current files contain original and later AI-assisted work.
+I built the initial Flutter frontend scaffolding, shared controls, basic button behavior, and navigation in the September 29–October 2 commits. Codex/ChatGPT assisted with later map/backend integration, responsive design, debugging, deployment preparation, tests, and documentation. [AI-USAGE.md](AI-USAGE.md) records the original contributions, eight retrospective assistance entries, and three correction cases with commit evidence. Current files contain original and later AI-assisted work.
 
 ## Licence
 
