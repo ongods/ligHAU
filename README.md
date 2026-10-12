@@ -17,7 +17,7 @@
 
 ligHAU helps students and visitors find campus buildings, offices, and services through an interactive map, searchable directory, and campus assistant. Administrators maintain a shared catalog through a separate authenticated dashboard.
 
-**Planned website:** https://ongods.github.io/ligHAU/ — online deployment still needs verification.
+**Website:** https://ongods.github.io/ligHAU/
 
 **Demo video:** [Demo recording](docs/05-demo-video.md)
 
